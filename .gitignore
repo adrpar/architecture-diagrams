@@ -1,0 +1,16 @@
+__pycache__
+__pycache__/
+*.pyc
+.mypy_cache
+.coverage
+htmlcov
+.cache
+.venv
+.env
+*.egg-info/
+*.egg
+.structurizr/
+workspace.dsl
+workspace.json
+.DS_Store
+.vscode/

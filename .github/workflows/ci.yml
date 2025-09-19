@@ -1,0 +1,49 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.12"]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install uv
+        run: pip install uv
+      - name: Install dependencies
+        run: |
+          uv run --version
+          # Sync and install tooling by running a no-op
+          uv run python -c "print('env ready')"
+      - name: Lint & Typecheck (optional)
+        run: |
+          uv run python - <<'PY'
+from shutil import which
+import sys
+print('mypy:', which('mypy'))
+print('pytest:', which('pytest'))
+PY
+          # Uncomment if ruff/black added to project
+          # uv run ruff check .
+          uv run mypy || true
+      - name: Run tests
+        run: uv run pytest -q
+      - name: Smoke: generate banking DSL
+        run: uv run arch-diags generate --project banking --output .structurizr/workspace.dsl
+      - name: Upload DSL artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: workspace-dsl
+          path: .structurizr/workspace.dsl
