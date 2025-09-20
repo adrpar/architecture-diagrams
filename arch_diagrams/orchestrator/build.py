@@ -14,6 +14,7 @@ def build_workspace_dsl(
     *,
     workspace_name: str = "banking",
     project: Optional[str] = None,
+    project_path: Optional[Path] = None,
     models_root: Optional[Path] = None,
     views_root: Optional[Path] = None,  # currently unused; discovery uses workspace root
     select_names: Optional[Iterable[str]] = None,
@@ -22,11 +23,68 @@ def build_workspace_dsl(
     prune_to_views: bool = False,
 ) -> str:
     root = Path(__file__).resolve().parents[2]
+    external_root: Optional[Path] = None
+    extra_model_dirs: list[Path] = []
+    extra_view_dirs: list[Path] = []
+    if project_path is not None:
+        pp = Path(project_path).resolve()
+        # Determine model/view directories to search
+        if (pp / "models").exists() or (pp / "views").exists():
+            # Direct project folder
+            external_root = pp
+            if (pp / "models").exists():
+                extra_model_dirs.append(pp / "models")
+            if (pp / "views").exists():
+                extra_view_dirs.append(pp / "views")
+        else:
+            # project_path may be a 'projects' root or a parent folder containing a 'projects' dir
+            proj_root = pp if pp.name == "projects" else (pp / "projects")
+            if project and (proj_root / project / "models").exists():
+                external_root = proj_root / project
+                extra_model_dirs.append(external_root / "models")
+                if (external_root / "views").exists():
+                    extra_view_dirs.append(external_root / "views")
+            elif project and (proj_root / project / "views").exists():
+                external_root = proj_root / project
+                if (external_root / "models").exists():
+                    extra_model_dirs.append(external_root / "models")
+                extra_view_dirs.append(external_root / "views")
+            else:
+                # Aggregate across all projects under proj_root if present
+                if proj_root.exists() and proj_root.is_dir():
+                    for sub in proj_root.iterdir():
+                        if not sub.is_dir():
+                            continue
+                        md = sub / "models"
+                        vd = sub / "views"
+                        if md.exists():
+                            extra_model_dirs.append(md)
+                        if vd.exists():
+                            extra_view_dirs.append(vd)
+                # No clear external_root (mixed aggregate)
+                external_root = None
+        # Ensure Python can import 'projects' as a top-level package for absolute imports in external files
+        if external_root is not None:
+            # If this is .../projects/<name>, add parent of 'projects'
+            if external_root.parent.name == "projects":
+                top = external_root.parent.parent
+            else:
+                # For direct project path, try its parent parent if parent is 'projects'
+                top = external_root.parent
+                if top.name == "projects":
+                    top = top.parent
+            if str(top) not in sys.path:
+                sys.path.insert(0, str(top))
+        else:
+            # Aggregate mode: if pp is 'projects', add its parent; if pp contains 'projects', add pp
+            top = pp.parent if pp.name == "projects" else pp
+            if str(top) not in sys.path:
+                sys.path.insert(0, str(top))
     # Ensure workspace root is importable so 'projects.<project>.*' modules can be imported
     if str(root) not in sys.path:
         sys.path.insert(0, str(root))
     # Optional project manifest: root-level projects/<project>/project.toml only
-    if project:
+    if project and external_root is None:
         manifest_paths = [root / "projects" / project / "project.toml"]
         for manifest in manifest_paths:
             if manifest.exists():
@@ -38,10 +96,29 @@ def build_workspace_dsl(
                         break
                 except Exception:
                     pass
-    builders = discover_model_builders(root, project=project)
+    # For external paths, prefer external manifest if present
+    if external_root is not None:
+        ext_manifest = external_root / "project.toml"
+        if ext_manifest.exists():
+            try:
+                data = tomllib.loads(ext_manifest.read_text())
+                ws_name = data.get("workspace_name") or data.get("name")
+                if ws_name:
+                    workspace_name = str(ws_name)
+            except Exception:
+                pass
+
+    # Discover from internal repo layout or external project path(s)
+    if extra_model_dirs:
+        builders = discover_model_builders(root, extra_dirs=extra_model_dirs)
+    else:
+        builders = discover_model_builders(root, project=project)
     model = compose(builders, name=workspace_name)
 
-    all_specs = discover_view_specs(root, project=project)
+    if extra_view_dirs:
+        all_specs = discover_view_specs(root, extra_dirs=extra_view_dirs)
+    else:
+        all_specs = discover_view_specs(root, project=project)
     selected = select_views(
         all_specs,
         names=set(select_names or []),
