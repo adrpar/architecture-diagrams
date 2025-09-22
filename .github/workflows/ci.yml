@@ -24,7 +24,7 @@ jobs:
         run: pip install uv
       - name: Install dependencies
         run: |
-          uv run --version
+          uv --version
           # Sync and install tooling by running a no-op
           uv run python -c "print('env ready')"
       - name: Lint & Typecheck (optional)
