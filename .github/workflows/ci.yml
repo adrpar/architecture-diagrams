@@ -27,6 +27,9 @@ jobs:
           uv --version
           # Sync and install tooling by running a no-op
           uv run python -c "print('env ready')"
+      - name: Install test dependencies
+        run: |
+          uv pip install pytest
       - name: Lint & Typecheck (optional)
         run: |
           uv run python -c "from shutil import which; print('mypy:', which('mypy')); print('pytest:', which('pytest'))"
@@ -36,7 +39,7 @@ jobs:
       - name: Run tests
         run: uv run pytest -q
       - name: "Smoke: generate banking DSL"
-        run: uv run architecture-diagrams generate --project banking --output .structurizr/workspace.dsl
+        run: uv run python -m architecture_diagrams.archdiags generate --project banking --output .structurizr/workspace.dsl
       - name: Upload DSL artifact
         uses: actions/upload-artifact@v4
         with:
