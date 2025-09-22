@@ -378,12 +378,16 @@ def dump_dsl(model) -> str:  # type: ignore[override]
     dsl = _reorder_relationships_after_declarations(dsl)
     # Optionally reduce cosmetic _2/_3 suffixes where safe (no base-name collisions)
     dsl = _canonicalize_variable_suffixes(dsl)
+    # Insert element tags (e.g., proposed/deprecated) into declarations so styles take effect
+    dsl = _inject_element_tags(dsl, model)
     dsl = _inject_workspace_name_comment(dsl, model)
     # Apply any name-based relationship filters declared in ViewSpecs (explicit over heuristics)
     dsl = _apply_name_filters(dsl, model)
     # Normalize invalid include lines in views after generation (e.g., containers in systemContext)
     # Run after name filters so we can detect sentinel and avoid generic excludes that hide intended relations.
     dsl = _fix_view_includes(dsl)
+    # Inject helpful comments so each view shows its key/name (Structurizr DSL doesn't render names by default)
+    dsl = _inject_view_header_comments(dsl, model)
     return dsl
 
 
@@ -412,20 +416,23 @@ def _inject_or_augment_styles(dsl: str, model: SystemLandscape) -> str:
     rel_styles = model.styles.relationship_styles
     synthesized = ('styles {' not in dsl) and (not element_styles and not rel_styles)
     lines = dsl.splitlines()
+
+    # Locate existing styles block if present
     style_start = None
     style_end = None
     depth = 0
     for i, line in enumerate(lines):
         if 'styles {' in line:
             style_start = i
+            depth = 0
         if style_start is not None:
-            if '{' in line:
-                depth += line.count('{')
-            if '}' in line:
-                depth -= line.count('}')
-            if depth == 0 and style_start is not None:
+            depth += line.count('{')
+            depth -= line.count('}')
+            if depth == 0:
                 style_end = i
                 break
+
+    # Find insertion point (after first systemLandscape block or at start of views)
     insert_index = None
     in_landscape = False
     saw_auto = False
@@ -443,6 +450,8 @@ def _inject_or_augment_styles(dsl: str, model: SystemLandscape) -> str:
             if line.strip() == 'views {':
                 insert_index = i + 1
                 break
+
+    # If no styles block exists, synthesize one with defaults
     if style_start is None and insert_index is not None:
         style_block: list[str] = ['    styles {']
         if synthesized:
@@ -459,6 +468,9 @@ def _inject_or_augment_styles(dsl: str, model: SystemLandscape) -> str:
                 ('external', {'background': '#808080'}),
                 ('storage', {'shape': 'Cylinder'}),
                 ('library', {'shape': 'Folder'}),
+                # Overlay/delta emphasis
+                ('proposed', {'background': '#e0f7fa', 'color': '#004d40'}),
+                ('deprecated', {'background': '#ffebee', 'color': '#b71c1c'}),
             ]
             for tag, attrs in defaults:
                 style_block.append(f'      element "{tag}" {{')
@@ -466,6 +478,7 @@ def _inject_or_augment_styles(dsl: str, model: SystemLandscape) -> str:
                     style_block.append(f'        {k} "{v}"')
                 style_block.append('      }')
         else:
+            # Emit configured styles from model
             for es in element_styles:
                 style_block.append(f'      element "{es.tag}" {{')
                 if es.background:
@@ -474,28 +487,31 @@ def _inject_or_augment_styles(dsl: str, model: SystemLandscape) -> str:
                     style_block.append(f'        color "{es.color}"')
                 if es.shape:
                     style_block.append(f'        shape "{es.shape}"')
-                if es.opacity is not None:
+                if getattr(es, 'opacity', None) is not None:
                     style_block.append(f'        opacity "{es.opacity}"')
                 style_block.append('      }')
             for rs in rel_styles:
                 style_block.append(f'      relationship "{rs.tag}" {{')
                 if rs.color:
                     style_block.append(f'        color "{rs.color}"')
-                if rs.dashed is not None:
+                if getattr(rs, 'dashed', None) is not None:
                     style_block.append(f'        dashed "{str(rs.dashed).lower()}"')
-                if rs.thickness is not None:
+                if getattr(rs, 'thickness', None) is not None:
                     style_block.append(f'        thickness "{rs.thickness}"')
                 style_block.append('      }')
         style_block.append('    }')
         lines[insert_index:insert_index] = style_block
         return '\n'.join(lines)
-    # augment path
+
+    # If styles block exists, ensure baseline-required entries are present
     baseline_required = [
         ('Container', {'shape': 'RoundedBox', 'description': 'true'}),
         ('Person', {'shape': 'Person'}),
         ('external', {'background': '#808080'}),
         ('storage', {'shape': 'Cylinder'}),
         ('library', {'shape': 'Folder'}),
+        ('proposed', {'background': '#e0f7fa', 'color': '#004d40'}),
+        ('deprecated', {'background': '#ffebee', 'color': '#b71c1c'}),
     ]
     if style_start is not None and style_end is not None:
         existing_block = '\n'.join(lines[style_start:style_end+1])
@@ -507,7 +523,7 @@ def _inject_or_augment_styles(dsl: str, model: SystemLandscape) -> str:
                     additions.append(f'        {k} "{v}"')
                 additions.append('      }')
         if additions:
-            lines.insert(style_end, '\n'.join(additions))
+            lines[style_end:style_end] = additions
     return '\n'.join(lines)
 
 def _inject_workspace_name_comment(dsl: str, model: SystemLandscape) -> str:
@@ -604,6 +620,181 @@ def _canonicalize_variable_suffixes(dsl: str) -> str:
 
     pattern = re.compile(r'\b(' + '|'.join(re.escape(k) for k in sorted(renames.keys(), key=len, reverse=True)) + r')\b')
     return pattern.sub(_replace, dsl)
+
+def _inject_element_tags(dsl: str, model: SystemLandscape) -> str:
+    """Add tags lines into element declarations based on model element.tags.
+
+    We map by displayName within the declaration context:
+    - Person: match by name
+    - SoftwareSystem: match by name
+    - Container: match by name under its parent SoftwareSystem
+    - Component: match by name under its parent Container (and system)
+    """
+    import re
+
+    # Fast exit if no tags anywhere
+    has_any_tags = False
+    for el in model.iter_elements():  # type: ignore[attr-defined]
+        if getattr(el, 'tags', None):
+            if len(getattr(el, 'tags')) > 0:  # type: ignore[arg-type]
+                has_any_tags = True
+                break
+    if not has_any_tags:
+        return dsl
+
+    # Build declaration index: var -> info and track block ranges
+    lines = dsl.splitlines()
+    decl_re = re.compile(r'^(\s*)([A-Za-z0-9_]+)\s*=\s*(SoftwareSystem|Container|Component|Person)\s+"([^"\\]+)"')
+    # Track a stack of (var, type, start_index)
+    stack: list[tuple[str, str, int]] = []
+    var_info: dict[str, dict[str, object]] = {}
+    # Helper to find parent system/container display name for a var from current stack
+    def current_parents() -> tuple[str | None, str | None]:
+        ps: str | None = None
+        pc: str | None = None
+        for pvar, ptyp, _ in reversed(stack):
+            info = var_info.get(pvar, {})
+            if ps is None and ptyp == 'SoftwareSystem':
+                ps = str(info.get('displayName')) if info.get('displayName') is not None else None
+            if pc is None and ptyp == 'Container':
+                pc = str(info.get('displayName')) if info.get('displayName') is not None else None
+            if ps and pc:
+                break
+        return ps, pc
+
+    # First pass: collect var metadata and block start indices
+    for i, line in enumerate(lines):
+        m = decl_re.match(line)
+        if m:
+            leading, var, typ, disp = m.group(1), m.group(2), m.group(3), m.group(4)
+            ps, pc = current_parents()
+            var_info[var] = {
+                'type': typ,
+                'displayName': disp,
+                'parentSystemDisplay': ps,
+                'parentContainerDisplay': pc,
+                'leading': leading,
+                'start': i,
+                'hasTags': False,
+            }
+            # If declaration opens a block here, push to stack
+            if '{' in line and '}' not in line:
+                stack.append((var, typ, i))
+            continue
+        # Track entering/exiting blocks by braces to maintain stack
+        open_count = line.count('{')
+        close_count = line.count('}')
+        for _ in range(open_count):
+            # Non-declaration block; push a sentinel to keep depth alignment
+            stack.append(("", "", i))
+        for _ in range(close_count):
+            if stack:
+                stack.pop()
+
+    if not var_info:
+        return dsl
+
+    # Build a quick lookup from model by names
+    systems_by_name = {s.name: s for s in model.software_systems.values()}
+    people_by_name = {p.name: p for p in model.people.values()}
+
+    # Second pass: determine insertion indices and whether tags already present
+    block_ranges: dict[str, tuple[int, int]] = {}  # var -> (start, end)
+    stack2: list[tuple[str, str, int]] = []
+    for i, line in enumerate(lines):
+        m = decl_re.match(line)
+        if m:
+            var, typ = m.group(2), m.group(3)
+            # Assume block starts at this line if '{' present, else when a '{' appears in subsequent lines
+            start_idx = i
+            if '{' in line:
+                stack2.append((var, typ, start_idx))
+            continue
+        # Track open braces to find ends
+        if '{' in line and not decl_re.match(line):
+            # Anonymous block, push sentinel
+            stack2.append(("", "", i))
+        if '}' in line:
+            # Pop until we close a declaration block
+            while stack2:
+                v, t, sidx = stack2.pop()
+                if v in var_info and v not in block_ranges:
+                    block_ranges[v] = (sidx, i)
+                    break
+
+    # Function to insert tags within a block (after technology if present, else after opening)
+    def inject_tags_for(var: str, tags: list[str]):
+        rng = block_ranges.get(var)
+        if not rng:
+            return
+        start, end = rng
+        # Check if tags already present in block
+        for j in range(start, end + 1):
+            if lines[j].strip().startswith('tags '):
+                return
+        # Find line after declaration or after a technology line
+        insert_at = start + 1
+        for j in range(start + 1, min(end + 1, start + 6)):
+            if 'technology ' in lines[j]:
+                insert_at = j + 1
+        leading_ws = var_info.get(var, {}).get('leading', '') or ''
+        # Element declarations are indented by two spaces more inside the block
+        tag_line = f"{leading_ws}  tags \"{', '.join(sorted(tags))}\""
+        lines.insert(insert_at, tag_line)
+        # Adjust all stored ranges after insertion
+        for k, (a, b) in list(block_ranges.items()):
+            if a > insert_at:
+                block_ranges[k] = (a + 1, b + 1)
+            elif a <= insert_at <= b:
+                block_ranges[k] = (a, b + 1)
+
+    # Match vars to model elements and inject tags
+    def _norm_tags(value: object) -> list[str]:
+        # Convert different tag representations to a clean, de-duplicated list of strings
+        if value is None:
+            return []
+        if isinstance(value, str):
+            return [value]
+        try:
+            return sorted(list(set(value)))  # type: ignore[arg-type]
+        except Exception:
+            return []
+
+    for var, info in var_info.items():
+        typ = info.get('type')
+        disp = info.get('displayName')
+        ps_disp = info.get('parentSystemDisplay')
+        pc_disp = info.get('parentContainerDisplay')
+
+        tags: list[str] = []
+        if typ == 'Person' and isinstance(disp, str):
+            p = people_by_name.get(disp)
+            tags = _norm_tags(getattr(p, 'tags', [])) if p is not None else []
+        elif typ == 'SoftwareSystem' and isinstance(disp, str):
+            s = systems_by_name.get(disp)
+            tags = _norm_tags(getattr(s, 'tags', [])) if s is not None else []
+        elif typ == 'Container' and isinstance(disp, str) and isinstance(ps_disp, str):
+            s = systems_by_name.get(ps_disp)
+            if s is not None:
+                c = next((c for c in getattr(s, 'containers', []) if getattr(c, 'name', '') == disp), None)
+                if c is not None:
+                    tags = _norm_tags(getattr(c, 'tags', []))
+        elif typ == 'Component' and isinstance(disp, str) and isinstance(ps_disp, str) and isinstance(pc_disp, str):
+            s = systems_by_name.get(ps_disp)
+            if s is not None:
+                cont = next((c for c in getattr(s, 'containers', []) if getattr(c, 'name', '') == pc_disp), None)
+                if cont is not None:
+                    comp = next((cm for cm in getattr(cont, 'components', []) if getattr(cm, 'name', '') == disp), None)
+                    if comp is not None:
+                        tags = _norm_tags(getattr(comp, 'tags', []))
+
+        # Filter out built-in tags that Structurizr assigns by type; keep only custom ones
+        if tags:
+            custom = [t for t in tags if t not in ('Element', 'Person', 'Software System', 'Container', 'Component')]
+            if custom:
+                inject_tags_for(var, custom)
+
+    return '\n'.join(lines)
 
 def _fix_view_includes(dsl: str) -> str:
     """Post-process the views section to ensure only valid include targets per view type.
@@ -1027,6 +1218,92 @@ def _apply_name_filters(dsl: str, model: SystemLandscape) -> str:
             current_view_has_filters = None
             current_view_element_excludes = None
             out.append(line)
+            continue
+        out.append(line)
+    return '\n'.join(out)
+
+
+def _inject_view_header_comments(dsl: str, model: SystemLandscape) -> str:
+    """Add a comment line after each view header with the view's key and name.
+
+    This makes derived/inherited views visible in the DSL output, since Structurizr DSL
+    only shows a 'description' field by default and not the view's name or key.
+    """
+    import re
+    lines = dsl.splitlines()
+    out: list[str] = []
+    in_views = False
+    # Track indices per kind to map to the model's view objects in the same order as emission
+    kind_indices: dict[str, int] = { 'systemContext': -1, 'container': -1, 'component': -1, 'systemLandscape': -1 }
+    header_re = re.compile(r'^(\s*)(systemContext|container|component)\s+([A-Za-z0-9_]+)\s*\{')
+    landscape_header_re = re.compile(r'^(\s*)systemLandscape\s*\{')
+    # Partition model views by kind and smartness to replicate emission order
+    all_views = list(getattr(model, 'views', []))
+    try:
+        from architecture_diagrams.c4 import SystemLandscapeView as _LSV, SmartSystemLandscapeView as _SLSV
+    except Exception:
+        _LSV = None  # type: ignore[assignment]
+        _SLSV = None  # type: ignore[assignment]
+    non_smart_views = [v for v in all_views if not (_SLSV and isinstance(v, _SLSV))]
+    smart_landscapes = [v for v in all_views if (_SLSV and isinstance(v, _SLSV))]
+    landscapes_in_dsl_order = [v for v in non_smart_views if (_LSV and isinstance(v, _LSV))] + smart_landscapes
+
+    # Helper to find the corresponding model view for a header
+    def _next_view(kind: str):
+        kind_indices[kind] += 1
+        idx = kind_indices[kind]
+        if kind == 'systemLandscape':
+            return landscapes_in_dsl_order[idx] if 0 <= idx < len(landscapes_in_dsl_order) else None
+        # Filter non-smart views by kind
+        def _is_kind(v: object) -> bool:
+            from architecture_diagrams.c4.model import SystemContextView as MSystemContextView, ContainerView as MContainerView, ComponentView as MComponentView
+            if kind == 'systemContext':
+                return isinstance(v, MSystemContextView)
+            if kind == 'container':
+                return isinstance(v, MContainerView)
+            if kind == 'component':
+                return isinstance(v, MComponentView)
+            return False
+        views_of_kind = [v for v in non_smart_views if _is_kind(v)]
+        return views_of_kind[idx] if 0 <= idx < len(views_of_kind) else None
+
+    for line in lines:
+        if line.strip() == 'views {':
+            in_views = True
+            out.append(line)
+            continue
+        if not in_views:
+            out.append(line)
+            continue
+        m = header_re.match(line)
+        if m:
+            leading, kind, _subject = m.group(1), m.group(2), m.group(3)
+            out.append(line)
+            v = _next_view(kind)
+            if v is not None:
+                k = getattr(v, 'key', '')
+                nm = getattr(v, 'name', '')
+                try:
+                    proj = getattr(v, 'project', '')
+                except Exception:
+                    proj = ''
+                meta = f'// View: key="{k}" name="{nm}"' + (f' project="{proj}"' if proj else '')
+                out.append(f'{leading}  {meta}')
+            continue
+        mland = landscape_header_re.match(line)
+        if mland:
+            leading = mland.group(1)
+            out.append(line)
+            v = _next_view('systemLandscape')
+            if v is not None:
+                k = getattr(v, 'key', '')
+                nm = getattr(v, 'name', '')
+                try:
+                    proj = getattr(v, 'project', '')
+                except Exception:
+                    proj = ''
+                meta = f'// View: key="{k}" name="{nm}"' + (f' project="{proj}"' if proj else '')
+                out.append(f'{leading}  {meta}')
             continue
         out.append(line)
     return '\n'.join(out)

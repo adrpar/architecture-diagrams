@@ -41,6 +41,8 @@ class ViewSpec:
     key: str
     name: str
     view_type: str
+    # Optional: inherit from another view (by key) and override fields
+    extends_key: Optional[str] = None
     description: str = ""
     tags: Set[str] = field(default_factory=_empty_tags)
     includes: Sequence[Selector] = field(default_factory=_empty_selectors)
@@ -89,8 +91,12 @@ class ViewSpec:
                     try:
                         return [model.get_container(sys_name, cont_name)]
                     except Exception:
-                        # Could also be System/Component in future
-                        pass
+                        # If the container no longer exists (e.g., overlay replaced it),
+                        # fall back to the parent system rather than treating the whole string as a system name.
+                        try:
+                            return [model.get_system(sys_name)]
+                        except Exception:
+                            pass
                 # assume software system by name
                 return [model.get_system(s)]
             if isinstance(sel, RelationshipFilter):
@@ -139,3 +145,37 @@ class ViewSpec:
             setattr(view, '_element_excludes_names', list(element_exclude_names))
 
 __all__ = ["ViewSpec", "Selector", "IncludeRelByName", "ExcludeRelByName"]
+
+
+def derive_view(
+    *,
+    base_key: str,
+    key: str,
+    name: str | None = None,
+    description: str | None = None,
+    view_type: str | None = None,
+    includes: Sequence[Selector] = (),
+    excludes: Sequence[Selector] = (),
+    filters: Sequence[Union[IncludeRelByName, ExcludeRelByName]] = (),
+    subject: str | None = None,
+    tags: Set[str] | None = None,
+    smart: bool | None = None,
+) -> ViewSpec:
+    """Ergonomic helper to define a view that extends another by key.
+
+    Only the provided fields will override the base; others fall back to the base at merge time.
+    """
+    return ViewSpec(
+        key=key,
+        name=name or key,
+        view_type=view_type or "",
+        extends_key=base_key,
+        description=description or "",
+        tags=tags or set(),
+        includes=list(includes),
+        excludes=list(excludes),
+        filters=list(filters),
+        subject=subject,
+        smart=bool(smart) if smart is not None else False,
+    )
+

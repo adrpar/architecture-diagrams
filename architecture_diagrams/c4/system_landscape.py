@@ -318,4 +318,71 @@ class SystemLandscape:
     def relationships_list(self) -> Iterable[Relationship]:  # pragma: no cover
         return self.relationships
 
+    # ----- Overlay helpers -----
+    def replace_container(
+        self,
+        system_name: str,
+        old_name: str,
+        new_name: str,
+        *,
+        description: str = "",
+        technology: Optional[str] = None,
+        tag_new: Optional[Iterable[str]] = None,
+        tag_old: Optional[Iterable[str]] = None,
+        remove_old: bool = True,
+    ) -> None:
+        """Create/ensure a new container and rewire relationships away from an old one.
+
+        - Ensures `new_name` container exists under the system (adds if missing)
+        - Rewrites all relationships where source or destination is the old container to point to the new one
+        - Optionally tags the new and/or old containers
+        - Optionally removes the old container from the system and container index
+        """
+        system = self.get_system(system_name)
+        # Ensure new container exists
+        new_c = system.add_container(new_name, description, technology, tags=tag_new or [])
+        self._containers_index[(system.name, new_c.name)] = new_c
+
+        old_c = None
+        try:
+            old_c = self.get_container(system_name, old_name)
+        except Exception:
+            old_c = None
+
+        if old_c is not None and tag_old:
+            old_c.tags.update(set(tag_old))
+
+        if old_c is not None and old_c is not new_c:
+            # Rewire relationships and update identity set
+            updated_identities: list[tuple[tuple[str, str, str, Optional[str]], tuple[str, str, str, Optional[str]]]] = []
+            for rel in self.relationships:
+                old_ident = (rel.source.name, rel.destination.name, rel.description, rel.technology)
+                changed = False
+                if rel.source is old_c:
+                    rel.source = new_c
+                    changed = True
+                if rel.destination is old_c:
+                    rel.destination = new_c
+                    changed = True
+                if changed:
+                    new_ident = (rel.source.name, rel.destination.name, rel.description, rel.technology)
+                    updated_identities.append((old_ident, new_ident))
+            # Refresh identity set entries
+            for old_ident, new_ident in updated_identities:
+                if old_ident in self._relationship_identity:
+                    self._relationship_identity.discard(old_ident)
+                self._relationship_identity.add(new_ident)
+
+            # Optionally remove old container
+            if remove_old:
+                try:
+                    # Remove from system container map
+                    if hasattr(system, "_containers"):
+                        system._containers.pop(old_name, None)  # type: ignore[attr-defined]
+                    # Remove from index
+                    self._containers_index.pop((system.name, old_name), None)
+                except Exception:
+                    # Best-effort removal; keep running even if internal
+                    pass
+
 __all__ = ["SystemLandscape"]

@@ -48,9 +48,18 @@ class SoftwareSystem(ElementBase):
             if technology and not existing.technology:
                 existing.technology = technology
             if tags:
-                existing.tags.update(tags)
+                # Treat a string as a single tag; otherwise assume iterable of strings
+                if isinstance(tags, str):
+                    existing.tags.update({tags})
+                else:
+                    existing.tags.update(tags)
             return existing
-        c = Container(name=name, description=description, technology=technology, tags=set(tags or []), parent=self)
+        # Normalize tags: string -> singleton set; iterable -> set; None -> empty set
+        if isinstance(tags, str):
+            tag_set = {tags}
+        else:
+            tag_set = set(tags or [])
+        c = Container(name=name, description=description, technology=technology, tags=tag_set, parent=self)
         self._containers[name] = c
         return c
 
@@ -60,13 +69,28 @@ class SoftwareSystem(ElementBase):
         existing = self._containers.get(other.name)
         if existing is None:
             other.parent = self
+            # Normalize tags on adopted container: string -> singleton set
+            if isinstance(other.tags, str):  # type: ignore[redundant-cast]
+                other.tags = {other.tags}  # type: ignore[assignment]
+            elif not isinstance(other.tags, set):
+                try:
+                    other.tags = set(other.tags)  # type: ignore[arg-type,assignment]
+                except Exception:
+                    other.tags = set()  # type: ignore[assignment]
             self._containers[other.name] = other
         else:
             if other.description and not existing.description:
                 existing.description = other.description
             if other.technology and not existing.technology:
                 existing.technology = other.technology
-            existing.tags.update(other.tags)
+            # Merge tags safely (normalize string)
+            if isinstance(other.tags, str):  # type: ignore[redundant-cast]
+                existing.tags.update({other.tags})
+            else:
+                try:
+                    existing.tags.update(other.tags)  # type: ignore[arg-type]
+                except Exception:
+                    pass
         return self
 
     # Allow system["container-name"] access (mirrors previous proxy behavior)
@@ -94,9 +118,16 @@ class Container(ElementBase):
             if technology and not existing.technology:
                 existing.technology = technology
             if tags:
-                existing.tags.update(tags)
+                if isinstance(tags, str):
+                    existing.tags.update({tags})
+                else:
+                    existing.tags.update(tags)
             return existing
-        comp = Component(name=name, description=description, technology=technology, tags=set(tags or []), parent=self)
+        if isinstance(tags, str):
+            tag_set = {tags}
+        else:
+            tag_set = set(tags or [])
+        comp = Component(name=name, description=description, technology=technology, tags=tag_set, parent=self)
         self._components[name] = comp
         return comp
 

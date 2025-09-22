@@ -159,3 +159,49 @@ def discover_view_specs(root: Path, project: Optional[str] = None, extra_dirs: O
                         pass
                 results.extend(views)
     return results
+
+def discover_overlays(root: Path, project: Optional[str] = None, extra_dirs: Optional[List[Path]] = None) -> List[object]:
+    """Discover overlay apply() functions.
+
+    Supported layout:
+      - projects/<project>/models/overlays/**/*.py exporting apply(model) -> None
+      - For external overlays, pass directories via extra_dirs
+    Returns a list of callables.
+    """
+    results: List[object] = []
+    searched: List[Path] = []
+    if extra_dirs:
+        _ensure_projects_parent_on_syspath(extra_dirs)
+        preload_external_project_packages(extra_dirs)
+    if project:
+        pref_root = root / "projects" / project / "models" / "overlays"
+        if pref_root.exists():
+            searched.append(pref_root)
+    if extra_dirs:
+        for d in extra_dirs:
+            ov = d / "overlays"
+            if ov.exists():
+                searched.append(ov)
+
+    for base_dir in searched:
+        for path in base_dir.rglob("*.py"):
+            if path.name.startswith("_"):
+                continue
+            try:
+                rel = path.relative_to(root).with_suffix("")
+                mod_name = ".".join(rel.parts)
+            except Exception:
+                mod_name = "external_" + "_".join(path.with_suffix("").parts[-6:])
+            try:
+                mod = import_module(mod_name)
+            except Exception:
+                spec = spec_from_file_location(mod_name, path)
+                if spec is None or spec.loader is None:
+                    continue
+                mod = module_from_spec(spec)
+                sys.modules[mod_name] = mod
+                spec.loader.exec_module(mod)
+            func = getattr(mod, "apply", None)
+            if callable(func):
+                results.append(func)
+    return results

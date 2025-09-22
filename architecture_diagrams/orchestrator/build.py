@@ -6,8 +6,9 @@ from typing import Iterable, Optional
 
 from architecture_diagrams.adapter.pystructurizr_export import dump_dsl
 from architecture_diagrams.orchestrator.compose import compose
-from architecture_diagrams.orchestrator.loader import discover_model_builders, discover_view_specs
+from architecture_diagrams.orchestrator.loader import discover_model_builders, discover_view_specs, discover_overlays
 from architecture_diagrams.orchestrator.select import select_views
+from architecture_diagrams.orchestrator.specs import ViewSpec
 
 
 def build_workspace_dsl(
@@ -109,16 +110,52 @@ def build_workspace_dsl(
                 pass
 
     # Discover from internal repo layout or external project path(s)
-    if extra_model_dirs:
-        builders = discover_model_builders(root, extra_dirs=extra_model_dirs)
+    # Resolve inheritance (extends) if present in manifest when using internal project
+    base_project: Optional[str] = None
+    if project and external_root is None:
+        manifest = root / "projects" / project / "project.toml"
+        if manifest.exists():
+            try:
+                data = tomllib.loads(manifest.read_text())
+                base_project = data.get("extends")  # type: ignore[assignment]
+            except Exception:
+                base_project = None
+
+    # Compose base
+    if base_project:
+        base_builders = discover_model_builders(root, project=base_project)
+        model = compose(base_builders, name=workspace_name)
+        # Then apply derived project's own builders on top (if any)
+        derived_builders = discover_model_builders(root, project=project)
+        for b in derived_builders:
+            model = b(model)
     else:
-        builders = discover_model_builders(root, project=project)
-    model = compose(builders, name=workspace_name)
+        if extra_model_dirs:
+            builders = discover_model_builders(root, extra_dirs=extra_model_dirs)
+        else:
+            builders = discover_model_builders(root, project=project)
+        model = compose(builders, name=workspace_name)
+
+    # Apply overlays if any (internal or external)
+    overlay_dirs = extra_model_dirs if extra_model_dirs else None
+    overlays = discover_overlays(root, project=project, extra_dirs=overlay_dirs)
+    for apply in overlays:
+        try:
+            apply(model)
+        except Exception:
+            # Best-effort: do not fail the whole build if an overlay raises
+            pass
 
     if extra_view_dirs:
-        all_specs = discover_view_specs(root, extra_dirs=extra_view_dirs)
+        base_specs = discover_view_specs(root, extra_dirs=extra_view_dirs)
     else:
-        all_specs = discover_view_specs(root, project=project)
+        base_specs = discover_view_specs(root, project=project)
+    # If extends is set, merge base project's views as well (base first to allow perceived override by derived)
+    if base_project:
+        base_proj_specs = discover_view_specs(root, project=base_project)
+        all_specs = _merge_view_inheritance(base_proj_specs, base_specs)
+    else:
+        all_specs = _merge_view_inheritance([], base_specs)
     selected = select_views(
         all_specs,
         names=set(select_names or []),
@@ -132,6 +169,59 @@ def build_workspace_dsl(
         _prune_model_to_views(model)
 
     return dump_dsl(model)
+
+
+def _merge_view_inheritance(base_specs: list[ViewSpec], derived_specs: list[ViewSpec]) -> list[ViewSpec]:
+    """Return a merged list of views where derived views may extend base views by key.
+
+    Rules:
+    - If derived view has extends_key matching a base view key:
+      - name/view_type default to base if not provided in derived
+      - description: derived overrides if set, else base
+      - tags: union (base ∪ derived)
+      - includes: base + derived (derived appended)
+      - excludes: base + derived (derived appended)
+      - filters: base + derived
+      - subject: derived overrides if set, else base
+      - smart: derived overrides if set to True, else keep base
+    - Otherwise views are included as-is; base then derived.
+    - If multiple base views share same key, first match wins.
+    """
+    by_key: dict[str, ViewSpec] = {v.key: v for v in base_specs}
+    merged: list[ViewSpec] = list(base_specs)
+    for dv in derived_specs:
+        ek = getattr(dv, 'extends_key', None)
+        if not ek:
+            merged.append(dv)
+            continue
+        bv = by_key.get(ek)
+        if not bv:
+            # No base found; fall back to derived as-is
+            merged.append(dv)
+            continue
+        # Build a new spec by merging fields
+        new = ViewSpec(
+            key=dv.key or bv.key,
+            name=dv.name or bv.name,
+            view_type=dv.view_type or bv.view_type,
+            description=dv.description or bv.description,
+            tags=set(bv.tags) | set(dv.tags),
+            includes=list(bv.includes) + list(dv.includes),
+            excludes=list(bv.excludes) + list(dv.excludes),
+            filters=list(getattr(bv, 'filters', [])) + list(getattr(dv, 'filters', [])),
+            subject=dv.subject or bv.subject,
+            smart=dv.smart or bv.smart,
+        )
+        # Override semantics: replace the base view in-place if present; otherwise append
+        try:
+            idx = merged.index(bv)
+        except ValueError:
+            idx = -1
+        if idx >= 0:
+            merged[idx] = new
+        else:
+            merged.append(new)
+    return merged
 
 
 def _prune_model_to_views(model) -> None:
