@@ -1,5 +1,5 @@
 [project]
-name = "arch-diagrams"
+name = "architecture-diagrams"
 version = "0.1.0"
 description = "C4-style architecture diagram builder and Structurizr DSL generator"
 readme = "README.md"
@@ -26,11 +26,11 @@ dependencies = [
 ]
 
 [tool.setuptools]
-packages = ["arch_diagrams"]
+packages = ["architecture_diagrams"]
 
 [build-system]
 requires = ["setuptools"]
 build-backend = "setuptools.build_meta"
 
 [project.scripts]
-arch-diags = "arch_diagrams.archdiags:cli"
+architecture-diagrams = "architecture_diagrams.archdiags:cli"

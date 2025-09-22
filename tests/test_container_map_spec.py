@@ -1,4 +1,4 @@
-from arch_diagrams.c4 import SystemLandscape
+from architecture_diagrams.c4 import SystemLandscape
 from typing import Mapping, Union, cast
 
 

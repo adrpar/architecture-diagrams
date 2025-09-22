@@ -8,7 +8,7 @@ from __future__ import annotations
 from typing import Dict, Optional, Iterable
 from pystructurizr.dsl import Workspace, Person as DPerson, SoftwareSystem as DSoftwareSystem, Dumper, View as DView
 
-from arch_diagrams.c4 import (
+from architecture_diagrams.c4 import (
     SystemLandscapeView,
     SmartSystemLandscapeView,
     SystemContextView,
@@ -16,7 +16,7 @@ from arch_diagrams.c4 import (
     ComponentView,
     SystemLandscape,
 )
-from arch_diagrams.extensions.smart_views import SmartView
+from architecture_diagrams.extensions.smart_views import SmartView
 
 # NOTE: Deployment and infrastructure mapping left for future extension since not used yet.
 
@@ -90,7 +90,7 @@ def to_pystructurizr(model: SystemLandscape) -> Workspace:
                     parent = getattr(cur, 'parent', None)
                     if parent is None:
                         return None
-                    from arch_diagrams.c4.model import SoftwareSystem as _MS
+                    from architecture_diagrams.c4.model import SoftwareSystem as _MS
                     if isinstance(parent, _MS):
                         return parent
                     cur = parent
@@ -167,8 +167,8 @@ def _normalized_include_elements(view: object, id_to_model: Dict[str, object], e
     - ContainerView: allow Person, SoftwareSystem, and Containers within the subject software system; map external Container/Component to parent SoftwareSystem.
     - ComponentView: allow Person, SoftwareSystem, Containers (external), and Components within the subject container; map external Component to its parent Container.
     """
-    from arch_diagrams.c4.model import Person as MPerson, SoftwareSystem as MSystem, Container as MContainer, Component as MComponent
-    from arch_diagrams.c4.model import SystemContextView as MSystemContextView, ContainerView as MContainerView, ComponentView as MComponentView
+    from architecture_diagrams.c4.model import Person as MPerson, SoftwareSystem as MSystem, Container as MContainer, Component as MComponent
+    from architecture_diagrams.c4.model import SystemContextView as MSystemContextView, ContainerView as MContainerView, ComponentView as MComponentView
 
     def _parent_system(obj: object) -> Optional[object]:
         # Walk parent pointers until a SoftwareSystem or None
@@ -286,8 +286,8 @@ def _resolve_view_subject(view: object, id_to_model: Dict[str, object], element_
     - ContainerView expects a SoftwareSystem (subject system)
     - ComponentView expects a Container
     """
-    from arch_diagrams.c4.model import Person as MPerson, SoftwareSystem as MSystem, Container as MContainer, Component as MComponent
-    from arch_diagrams.c4.model import SystemContextView as MSystemContextView, ContainerView as MContainerView, ComponentView as MComponentView
+    from architecture_diagrams.c4.model import Person as MPerson, SoftwareSystem as MSystem, Container as MContainer, Component as MComponent
+    from architecture_diagrams.c4.model import SystemContextView as MSystemContextView, ContainerView as MContainerView, ComponentView as MComponentView
 
     def _parent_system(obj: object) -> Optional[object]:
         cur = obj
@@ -834,7 +834,7 @@ def _apply_name_filters(dsl: str, model: SystemLandscape) -> str:
     in _fix_view_includes by setting a sentinel flag comment.
     """
     # Fast path: if no such filters were declared anywhere, skip
-    from arch_diagrams.orchestrator.specs import IncludeRelByName, ExcludeRelByName  # local import to avoid cycles during tooling
+    from architecture_diagrams.orchestrator.specs import IncludeRelByName, ExcludeRelByName  # local import to avoid cycles during tooling
     # Build view lists for filter detection
     all_views = list(getattr(model, 'views', []))
     non_smart_views = [v for v in all_views if not isinstance(v, SmartSystemLandscapeView)]
@@ -937,7 +937,7 @@ def _apply_name_filters(dsl: str, model: SystemLandscape) -> str:
     landscape_header_re = re.compile(r'^(\s*)systemLandscape\s*\{')
     # Order of landscape views in DSL: non-smart first, then smart landscapes
     try:
-        from arch_diagrams.c4 import SystemLandscapeView as _LSV
+        from architecture_diagrams.c4 import SystemLandscapeView as _LSV
     except Exception:
         _LSV = None  # type: ignore[assignment]
     landscapes_in_dsl_order = [v for v in non_smart_views if (_LSV and isinstance(v, _LSV))] + smart_landscapes
@@ -957,7 +957,7 @@ def _apply_name_filters(dsl: str, model: SystemLandscape) -> str:
             idx = kind_indices[kind]
             # Filter non-smart views by kind in definition order
             def _is_kind(v: object) -> bool:
-                from arch_diagrams.c4.model import SystemContextView as MSystemContextView, ContainerView as MContainerView, ComponentView as MComponentView
+                from architecture_diagrams.c4.model import SystemContextView as MSystemContextView, ContainerView as MContainerView, ComponentView as MComponentView
                 if kind == 'systemContext':
                     return isinstance(v, MSystemContextView)
                 if kind == 'container':

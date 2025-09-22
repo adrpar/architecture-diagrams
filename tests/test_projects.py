@@ -1,7 +1,7 @@
 from __future__ import annotations
 from pathlib import Path
 
-from arch_diagrams.orchestrator.build import build_workspace_dsl
+from architecture_diagrams.orchestrator.build import build_workspace_dsl
 
 
 def test_banking_is_supported(tmp_path: Path) -> None:

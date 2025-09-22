@@ -2,7 +2,7 @@ from typing import Optional
 
 from pystructurizr.dsl import Dumper, Element, View
 
-from arch_diagrams.extensions.relationships import RelationshipFilter
+from architecture_diagrams.extensions.relationships import RelationshipFilter
 
 
 DEFAULT_VIEW_TAG = "default"

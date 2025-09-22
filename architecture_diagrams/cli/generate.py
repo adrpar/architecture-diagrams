@@ -1,7 +1,7 @@
 import click
 from pathlib import Path
 
-from arch_diagrams.orchestrator.build import build_workspace_dsl
+from architecture_diagrams.orchestrator.build import build_workspace_dsl
 
 
 @click.command()

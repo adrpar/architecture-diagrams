@@ -1,8 +1,8 @@
 from __future__ import annotations
 from typing import List
 
-from arch_diagrams.c4.model import ViewType
-from arch_diagrams.orchestrator.specs import ViewSpec, ExcludeRelByName, IncludeRelByName
+from architecture_diagrams.c4.model import ViewType
+from architecture_diagrams.orchestrator.specs import ViewSpec, ExcludeRelByName, IncludeRelByName
 
 
 def get_views() -> List[ViewSpec]:

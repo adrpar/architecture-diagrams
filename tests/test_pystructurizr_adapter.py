@@ -1,5 +1,5 @@
-from arch_diagrams.c4 import SystemLandscape
-from arch_diagrams.adapter.pystructurizr_export import dump_dsl
+from architecture_diagrams.c4 import SystemLandscape
+from architecture_diagrams.adapter.pystructurizr_export import dump_dsl
 
 
 def test_dump_minimal_model_contains_workspace_name():

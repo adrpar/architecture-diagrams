@@ -6,7 +6,7 @@ Thanks for considering contributing!
 
 - Prerequisites: Python 3.12+, [uv](https://docs.astral.sh/uv/) installed
 - Install dependencies on first run:
-  - `uv run arch-diags --help`
+  - `uv run architecture-diagrams --help`
 
 ## Dev loop
 

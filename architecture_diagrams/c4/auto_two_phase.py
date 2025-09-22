@@ -3,11 +3,11 @@
 Provides convention-based wrappers to remove per-module boilerplate `register_*` functions.
 
 Convention:
-    For a system module named `<name>_c4.py` located in `arch_diagrams.diag`, if it defines
+    For a system module named `<name>_c4.py` located in `architecture_diagrams.diag`, if it defines
     - `define_<name>(model)` and `link_<name>(model)` functions
   you can call::
 
-    from arch_diagrams.c4.auto_two_phase import auto_register
+    from architecture_diagrams.c4.auto_two_phase import auto_register
     auto_register(model, "payments_core")  # resolves to define_payments_core + link_payments_core
 
   Or build multiple at once::

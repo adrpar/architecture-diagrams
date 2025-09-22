@@ -1,7 +1,7 @@
 from __future__ import annotations
 from typing import Iterable, List, Optional, Set
 
-from arch_diagrams.orchestrator.specs import ViewSpec
+from architecture_diagrams.orchestrator.specs import ViewSpec
 
 
 def select_views(

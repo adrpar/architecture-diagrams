@@ -1,4 +1,4 @@
-from arch_diagrams.c4 import SystemLandscape, SoftwareSystem, Container
+from architecture_diagrams.c4 import SystemLandscape, SoftwareSystem, Container
 
 # Primary system used for existence check in link phase
 SYSTEM_KEY = "Customer Portal"

@@ -1,7 +1,7 @@
 from __future__ import annotations
 from typing import Iterable, Optional, Callable
 
-from arch_diagrams.c4.system_landscape import SystemLandscape
+from architecture_diagrams.c4.system_landscape import SystemLandscape
 
 
 ModelBuilder = Callable[[Optional[SystemLandscape]], SystemLandscape]

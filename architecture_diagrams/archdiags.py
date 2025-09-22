@@ -1,10 +1,10 @@
 import click
 
-from arch_diagrams.cli.dump import dump
-from arch_diagrams.cli.lite import lite
-from arch_diagrams.cli import generate as generate_cmd
-from arch_diagrams.cli.list_views import list_views
-from arch_diagrams.cli.list_modules import list_modules
+from architecture_diagrams.cli.dump import dump
+from architecture_diagrams.cli.lite import lite
+from architecture_diagrams.cli import generate as generate_cmd
+from architecture_diagrams.cli.list_views import list_views
+from architecture_diagrams.cli.list_modules import list_modules
 
 
 @click.group()

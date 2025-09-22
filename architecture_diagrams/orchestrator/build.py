@@ -4,10 +4,10 @@ import sys
 import tomllib
 from typing import Iterable, Optional
 
-from arch_diagrams.adapter.pystructurizr_export import dump_dsl
-from arch_diagrams.orchestrator.compose import compose
-from arch_diagrams.orchestrator.loader import discover_model_builders, discover_view_specs
-from arch_diagrams.orchestrator.select import select_views
+from architecture_diagrams.adapter.pystructurizr_export import dump_dsl
+from architecture_diagrams.orchestrator.compose import compose
+from architecture_diagrams.orchestrator.loader import discover_model_builders, discover_view_specs
+from architecture_diagrams.orchestrator.select import select_views
 
 
 def build_workspace_dsl(

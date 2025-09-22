@@ -1,7 +1,7 @@
 import click
 from pathlib import Path
 
-from arch_diagrams.orchestrator.loader import discover_view_specs
+from architecture_diagrams.orchestrator.loader import discover_view_specs
 
 
 @click.command()

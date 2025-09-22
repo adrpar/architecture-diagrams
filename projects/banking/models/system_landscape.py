@@ -2,8 +2,8 @@ from __future__ import annotations
 from typing import Optional
 from pathlib import Path
 
-from arch_diagrams.c4.system_landscape import SystemLandscape
-from arch_diagrams.c4.auto_two_phase import auto_register
+from architecture_diagrams.c4.system_landscape import SystemLandscape
+from architecture_diagrams.c4.auto_two_phase import auto_register
 
 
 def build(model: Optional[SystemLandscape] = None) -> SystemLandscape:

@@ -1,5 +1,5 @@
-from arch_diagrams.c4 import SystemLandscape
-from arch_diagrams.c4.auto_two_phase import auto_register, auto_register_all
+from architecture_diagrams.c4 import SystemLandscape
+from architecture_diagrams.c4.auto_two_phase import auto_register, auto_register_all
 
 
 def test_auto_register_single_define_and_link():

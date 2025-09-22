@@ -1,4 +1,4 @@
-from arch_diagrams.c4 import SystemLandscape
+from architecture_diagrams.c4 import SystemLandscape
 
 
 def test_workspace_model_basic_elements_and_ids():

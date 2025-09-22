@@ -12,10 +12,10 @@ Rules:
  4. Report concise diffs if missing; ignore extras.
 """
 from typing import Any
-from arch_diagrams.adapter.pystructurizr_export import to_pystructurizr  # type: ignore[assignment]
+from architecture_diagrams.adapter.pystructurizr_export import to_pystructurizr  # type: ignore[assignment]
 from pathlib import Path
-from arch_diagrams.orchestrator.loader import discover_model_builders
-from arch_diagrams.orchestrator.compose import compose
+from architecture_diagrams.orchestrator.loader import discover_model_builders
+from architecture_diagrams.orchestrator.compose import compose
 
 
 def _build_legacy_like_workspace() -> Any:

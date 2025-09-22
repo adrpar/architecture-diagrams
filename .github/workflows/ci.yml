@@ -41,7 +41,7 @@ PY
       - name: Run tests
         run: uv run pytest -q
       - name: Smoke: generate banking DSL
-        run: uv run arch-diags generate --project banking --output .structurizr/workspace.dsl
+        run: uv run architecture-diagrams generate --project banking --output .structurizr/workspace.dsl
       - name: Upload DSL artifact
         uses: actions/upload-artifact@v4
         with:

@@ -1,7 +1,7 @@
 import click
 import sys
 
-from arch_diagrams.orchestrator.loader import discover_view_specs
+from architecture_diagrams.orchestrator.loader import discover_view_specs
 from pathlib import Path
 
 

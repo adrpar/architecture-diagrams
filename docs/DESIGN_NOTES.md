@@ -14,10 +14,10 @@ This document captures the architecture and design decisions behind the decouple
 - View layer
   - `projects/<project>/views/**` Python modules exporting `get_views() -> List[ViewSpec]`.
 - Orchestrator
-  - `arch_diagrams/orchestrator/*` composes model + selected views and produces a Workspace.
+  - `architecture_diagrams/orchestrator/*` composes model + selected views and produces a Workspace.
   - Selection by names, tags, or modules (subject root).
 - Exporter
-  - `arch_diagrams/adapter/pystructurizr_export.py` renders to Structurizr DSL with normalization.
+  - `architecture_diagrams/adapter/pystructurizr_export.py` renders to Structurizr DSL with normalization.
 
 ## ViewSpec schema (summary)
 - `key`, `name`, `description`, `view_type`, `subject`
@@ -44,15 +44,15 @@ This document captures the architecture and design decisions behind the decouple
 ## Modules (SYSTEM_KEY)
 - Subject roots (e.g., `connect`, `assess`, `mobile`) are discoverable from views.
 - CLI selection by modules avoids enumerating view keys.
-- `uv run arch-diags list-modules` displays the available module keys.
+- `uv run architecture-diagrams list-modules` displays the available module keys.
 
 ## CLI workflows
-- List views: `uv run arch-diags list-views`
-- List modules: `uv run arch-diags list-modules`
-- Generate DSL by tag: `uv run arch-diags generate --tags default --output workspace.dsl`
-- Generate DSL by names: `uv run arch-diags generate --views ConnectSystemContext AssessContainer --output workspace.dsl`
-- Generate DSL by modules: `uv run arch-diags generate --modules connect,assess --output workspace.dsl`
-- Start Structurizr Lite with a generated workspace: `uv run arch-diags lite start` (uses .structurizr/workspace.dsl)
+- List views: `uv run architecture-diagrams list-views`
+- List modules: `uv run architecture-diagrams list-modules`
+- Generate DSL by tag: `uv run architecture-diagrams generate --tags default --output workspace.dsl`
+- Generate DSL by names: `uv run architecture-diagrams generate --views ConnectSystemContext AssessContainer --output workspace.dsl`
+- Generate DSL by modules: `uv run architecture-diagrams generate --modules connect,assess --output workspace.dsl`
+- Start Structurizr Lite with a generated workspace: `uv run architecture-diagrams lite start` (uses .structurizr/workspace.dsl)
 
 ## Legacy parity patterns
 - Minimal defaults: default views usually omit explicit `includes`. The exporter injects a wildcard to keep helpful context.

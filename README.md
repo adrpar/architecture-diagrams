@@ -10,10 +10,10 @@ This repository provides a small toolkit to define C4-style architecture models 
 
 It includes an example project under `projects/banking` to demonstrate how to structure models and views.
 
-The CLI entrypoint is `arch-diags`:
+The CLI entrypoint is `architecture-diagrams`:
 
 ```
-uv run arch-diags --help
+uv run architecture-diagrams --help
 ```
 
 ## Setup
@@ -30,7 +30,7 @@ Once `uv` is installed globally, you start using the project by running the CLI 
 automatically install all the requirements before execution:
 
 ```
-uv run arch-diags --help
+uv run architecture-diagrams --help
 ```
 
 ## Building (optional)
@@ -54,7 +54,7 @@ What this gives us:
 ### Where things live
 - Model (systems, containers, relationships): `projects/<project>/models/...`.
 - Views (System Landscape/Context/Container): `projects/<project>/views/*.py`.
-- Orchestrator & exporter: `arch_diagrams/orchestrator/*` and `arch_diagrams/adapter/pystructurizr_export.py`.
+- Orchestrator & exporter: `architecture_diagrams/orchestrator/*` and `architecture_diagrams/adapter/pystructurizr_export.py`.
 
 ### ViewSpec in a nutshell
 Each view file defines a `get_views()` that returns `List[ViewSpec]`:
@@ -99,17 +99,17 @@ You can pick views by name, by tag, or by module (the subject root, a.k.a. SYSTE
 
 Discovery:
 - List all views with names and tags:
-	- `uv run arch-diags list-views`
+	- `uv run architecture-diagrams list-views`
 - List available modules (subject roots):
-	- `uv run arch-diags list-modules --project banking`
+	- `uv run architecture-diagrams list-modules --project banking`
 
 Generate DSLs:
 - By tag (all defaults):
-	- `uv run arch-diags generate --project banking --tags default --output workspace.dsl`
+	- `uv run architecture-diagrams generate --project banking --tags default --output workspace.dsl`
 - By explicit names (mix-and-match):
-	- `uv run arch-diags generate --project banking --views PaymentsContainer BankingSystemContext --output workspace.dsl`
+	- `uv run architecture-diagrams generate --project banking --views PaymentsContainer BankingSystemContext --output workspace.dsl`
 - By modules (no need to enumerate view names):
-	- `uv run arch-diags generate --project banking --modules payments,channels --output workspace.dsl`
+	- `uv run architecture-diagrams generate --project banking --modules payments,channels --output workspace.dsl`
 
 Notes:
 - By default we don’t prune the model to elements in views. Use `--prune-to-views` if you need a trimmed DSL.
@@ -119,12 +119,12 @@ Notes:
 You can build DSLs on the fly and run Structurizr Lite locally.
 
 - Start Lite mounting a generated DSL for a module:
-	- `uv run arch-diags lite start --project banking --modules payments`
+	- `uv run architecture-diagrams lite start --project banking --modules payments`
 - Or generate first, then start:
-	- `uv run arch-diags generate --project banking --modules payments --output .structurizr/workspace.dsl`
-	- `uv run arch-diags lite start`
+	- `uv run architecture-diagrams generate --project banking --modules payments --output .structurizr/workspace.dsl`
+	- `uv run architecture-diagrams lite start`
 - Stop Lite:
-	- `uv run arch-diags lite stop`
+	- `uv run architecture-diagrams lite stop`
 
 ### Examples in views
 - Minimal defaults with TD variants curated via filters in `projects/banking/views/*_views.py`:

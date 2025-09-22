@@ -2,11 +2,11 @@ from __future__ import annotations
 
 import re
 
-from arch_diagrams.adapter.pystructurizr_export import dump_dsl, to_pystructurizr  # type: ignore[assignment]
-from arch_diagrams.orchestrator.build import build_workspace_dsl
-from arch_diagrams.orchestrator.loader import discover_model_builders, discover_view_specs
-from arch_diagrams.orchestrator.compose import compose
-from arch_diagrams.orchestrator.select import select_views
+from architecture_diagrams.adapter.pystructurizr_export import dump_dsl, to_pystructurizr  # type: ignore[assignment]
+from architecture_diagrams.orchestrator.build import build_workspace_dsl
+from architecture_diagrams.orchestrator.loader import discover_model_builders, discover_view_specs
+from architecture_diagrams.orchestrator.compose import compose
+from architecture_diagrams.orchestrator.select import select_views
 from pathlib import Path
 
 

@@ -1,6 +1,6 @@
-from arch_diagrams.orchestrator.loader import discover_model_builders
-from arch_diagrams.orchestrator.compose import compose
-from arch_diagrams.adapter.pystructurizr_export import dump_dsl
+from architecture_diagrams.orchestrator.loader import discover_model_builders
+from architecture_diagrams.orchestrator.compose import compose
+from architecture_diagrams.adapter.pystructurizr_export import dump_dsl
 from pathlib import Path
 
 

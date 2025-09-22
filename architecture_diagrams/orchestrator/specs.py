@@ -2,9 +2,9 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Callable, Iterable, Optional, Sequence, Set, Union, Protocol, List, cast
 
-from arch_diagrams.c4.model import ElementBase
-from arch_diagrams.c4.system_landscape import SystemLandscape
-from arch_diagrams.extensions.relationships import RelationshipFilter
+from architecture_diagrams.c4.model import ElementBase
+from architecture_diagrams.c4.system_landscape import SystemLandscape
+from architecture_diagrams.extensions.relationships import RelationshipFilter
 
 Selector = Union[
     str,
@@ -52,7 +52,7 @@ class ViewSpec:
 
     def build(self, model: SystemLandscape) -> None:
         # Create the view on the model and resolve includes/excludes
-        from arch_diagrams.c4.model import ViewType
+        from architecture_diagrams.c4.model import ViewType
         view = None
         if self.smart and self.view_type == ViewType.SYSTEM_LANDSCAPE:
             view = model.add_smart_system_landscape_view(self.key, self.name, self.description)
@@ -108,7 +108,7 @@ class ViewSpec:
                     # For system landscape views, containers are not valid include targets.
                     # If a container was selected (e.g., "System/Container"), include its parent Software System instead.
                     try:
-                        from arch_diagrams.c4.model import ViewType as _VT  # local import to avoid module-level cycles
+                        from architecture_diagrams.c4.model import ViewType as _VT  # local import to avoid module-level cycles
                     except Exception:
                         _VT = None  # type: ignore[assignment]
                     target = item

@@ -7,11 +7,11 @@ import webbrowser
 
 from typing import Any, Optional
 
-from arch_diagrams.orchestrator.build import build_workspace_dsl
+from architecture_diagrams.orchestrator.build import build_workspace_dsl
 
 
 _STRUCTURIZR_LITE_IMAGE_NAME = "structurizr/lite"
-_CONTAINER_NAME = "structurizr-lite-arch-diags"
+_CONTAINER_NAME = "structurizr-lite-architecture-diagrams"
 
 
 @click.group()

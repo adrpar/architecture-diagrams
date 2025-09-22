@@ -5,12 +5,9 @@ import sys
 from pathlib import Path
 from typing import List, Optional
 
-from arch_diagrams.orchestrator.compose import ModelBuilder
-from arch_diagrams.orchestrator.specs import ViewSpec
+from architecture_diagrams.orchestrator.compose import ModelBuilder
+from architecture_diagrams.orchestrator.specs import ViewSpec
 
-
-## Legacy alias mapping ('arch_diags' -> 'arch_diagrams') was removed.
-## External projects must import 'arch_diagrams' directly.
 
 def _ensure_projects_parent_on_syspath(paths: List[Path]) -> None:
     """Add the parent of any discovered 'projects' directory to sys.path for external imports.

@@ -1,4 +1,4 @@
-from arch_diagrams.c4 import SystemLandscape, Container
+from architecture_diagrams.c4 import SystemLandscape, Container
 
 
 def test_system_indexing_and_container_lookup():

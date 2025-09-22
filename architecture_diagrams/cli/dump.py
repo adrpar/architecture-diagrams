@@ -3,7 +3,7 @@ import os
 
 from typing import Optional, Iterable
 
-from arch_diagrams.orchestrator.build import build_workspace_dsl
+from architecture_diagrams.orchestrator.build import build_workspace_dsl
 
 
 @click.command()

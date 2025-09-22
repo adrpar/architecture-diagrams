@@ -17,33 +17,33 @@ Always use uv.
 - Generate DSL for a project:
 
 ```
-uv run arch-diags generate --project banking --output workspace.dsl
+uv run architecture-diagrams generate --project banking --output workspace.dsl
 ```
 
 - List views for a project:
 
 ```
-uv run arch-diags list-views --project banking
+uv run architecture-diagrams list-views --project banking
 ```
 
 - List modules inferred from views (subjects):
 
 ```
-uv run arch-diags list-modules --project banking
+uv run architecture-diagrams list-modules --project banking
 ```
 
 - Selective generation by names, tags, or modules:
 
 ```
-uv run arch-diags generate --project banking --views ReportingDataLineage,BankingDataFlows
-uv run arch-diags generate --project banking --tags analytics,channels
-uv run arch-diags generate --project banking --modules payments,channels
+uv run architecture-diagrams generate --project banking --views ReportingDataLineage,BankingDataFlows
+uv run architecture-diagrams generate --project banking --tags analytics,channels
+uv run architecture-diagrams generate --project banking --modules payments,channels
 ```
 
 ## Name-based relationship filters
 
 Views can add filters that generate `include A->B` or `exclude A->B` lines in the DSL by referring to elements by display names, including nested forms like `System/Container`.
-Use `IncludeRelByName` and `ExcludeRelByName` in `arch_diagrams.orchestrator.specs`.
+Use `IncludeRelByName` and `ExcludeRelByName` in `architecture_diagrams.orchestrator.specs`.
 
 Examples:
 
@@ -91,4 +91,4 @@ All projects must live under `projects/<project>`.
 Migration from in-package layout:
   - Update imports to use `from projects.<project>...`
 - Add `projects/<project>/project.toml` with `workspace_name = "Your Name"` if you want a custom name
-- Run: `uv run arch-diags generate --project <project>` to verify
+- Run: `uv run architecture-diagrams generate --project <project>` to verify

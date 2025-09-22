@@ -34,12 +34,12 @@ Use tags and/or names to select a subset of views for generation:
 ## CLI usage
 
 - List views (for discoverability):
-  - `uv run arch-diags list-views`
+  - `uv run architecture-diagrams list-views`
 - Generate DSL for selected views:
-  - `uv run arch-diags generate --tag default`
-  - `uv run arch-diags generate --name AssessContainer --name ConnectSystemContext`
+  - `uv run architecture-diagrams generate --tag default`
+  - `uv run architecture-diagrams generate --name AssessContainer --name ConnectSystemContext`
 - Run Structurizr Lite with on-the-fly generation:
-  - `uv run arch-diags lite --tag td`
+  - `uv run architecture-diagrams lite --tag td`
 
 ## Adding a new view
 
