@@ -1,5 +1,7 @@
 import click
 from pathlib import Path
+import sys
+import logging
 
 from architecture_diagrams.orchestrator.build import build_workspace_dsl
 
@@ -12,25 +14,47 @@ from architecture_diagrams.orchestrator.build import build_workspace_dsl
 @click.option("--tags", "tags_", default=None, help="Comma-separated view tags to include")
 @click.option("--modules", "modules_", default=None, help="Comma-separated module keys (e.g., care-journeys, assess) derived from view subjects")
 @click.option("--prune-to-views", is_flag=True, default=False, help="Prune model to elements reachable from selected views")
-def generate(output: str, project: str | None, project_path: str | None, views: str | None, tags_: str | None, modules_: str | None, prune_to_views: bool) -> None:
+@click.option("--verbose", is_flag=True, default=False, help="Enable verbose logging for troubleshooting")
+def generate(output: str, project: str | None, project_path: str | None, views: str | None, tags_: str | None, modules_: str | None, prune_to_views: bool, verbose: bool) -> None:
     """Generate a workspace.dsl from composed models and independent views."""
+    # Setup logging early
+    level = logging.DEBUG if verbose else logging.INFO
+    logging.basicConfig(stream=sys.stderr, level=level, format="%(levelname)s: %(message)s")
+    log = logging.getLogger("arch-diags.generate")
+
     names = [v.strip() for v in views.split(",")] if views else []
     tags = [t.strip() for t in tags_.split(",")] if tags_ else []
     modules = [m.strip() for m in modules_.split(",")] if modules_ else []
     # Workspace name defaults to project key; override via project manifest if present
     workspace_name = project if project else "banking"
     pp = Path(project_path) if project_path else None
-    dsl = build_workspace_dsl(project=project,
-                              project_path=pp,
-                              workspace_name=workspace_name,
-                              select_names=names,
-                              select_tags=tags,
-                              select_modules=modules,
-                              prune_to_views=prune_to_views)
+    try:
+        log.debug("Generating DSL with params: output=%s, project=%s, project_path=%s, views=%s, tags=%s, modules=%s, prune_to_views=%s",
+                  output, project, str(pp) if pp else None, names, tags, modules, prune_to_views)
+        dsl = build_workspace_dsl(project=project,
+                                  project_path=pp,
+                                  workspace_name=workspace_name,
+                                  select_names=names,
+                                  select_tags=tags,
+                                  select_modules=modules,
+                                  prune_to_views=prune_to_views)
+    except FileNotFoundError as e:
+        log.error("Configuration or project files not found: %s", e)
+        sys.exit(2)
+    except Exception as e:
+        log.error("Generation failed: %s", e)
+        if verbose:
+            import traceback
+            traceback.print_exc()
+        sys.exit(1)
     out_path = Path(output)
     # Create parent directory if using a nested output path
     if out_path.parent and str(out_path.parent) not in ("", "."):
         out_path.parent.mkdir(parents=True, exist_ok=True)
-    with out_path.open("w") as fh:
-        fh.write(dsl)
+    try:
+        with out_path.open("w") as fh:
+            fh.write(dsl)
+    except Exception as e:
+        log.error("Failed to write output to %s: %s", out_path, e)
+        sys.exit(3)
     click.echo(f"Wrote {output}")
