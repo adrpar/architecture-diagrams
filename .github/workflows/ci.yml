@@ -29,18 +29,13 @@ jobs:
           uv run python -c "print('env ready')"
       - name: Lint & Typecheck (optional)
         run: |
-          uv run python - <<'PY'
-from shutil import which
-import sys
-print('mypy:', which('mypy'))
-print('pytest:', which('pytest'))
-PY
+          uv run python -c "from shutil import which; print('mypy:', which('mypy')); print('pytest:', which('pytest'))"
           # Uncomment if ruff/black added to project
           # uv run ruff check .
           uv run mypy || true
       - name: Run tests
         run: uv run pytest -q
-      - name: Smoke: generate banking DSL
+      - name: "Smoke: generate banking DSL"
         run: uv run architecture-diagrams generate --project banking --output .structurizr/workspace.dsl
       - name: Upload DSL artifact
         uses: actions/upload-artifact@v4
