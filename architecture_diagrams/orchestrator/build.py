@@ -1,10 +1,20 @@
 from __future__ import annotations
-from pathlib import Path
+
+import hashlib
+import json
 import sys
+from pathlib import Path
+from typing import Any, Dict, Iterable, Optional
+
 import tomllib
-from typing import Iterable, Optional
 
 from architecture_diagrams.adapter.pystructurizr_export import dump_dsl
+from architecture_diagrams.plugins import get_exporter  # plugin registry
+from architecture_diagrams.plugins import exporters as _ensure_exporters  # noqa: F401 ensure registration
+from architecture_diagrams.plugins import tagging as _ensure_tagging  # noqa: F401
+from architecture_diagrams.plugins import view_generators as _ensure_view_generators  # noqa: F401
+from architecture_diagrams.plugins.tagging import get_strategy as get_tagging_strategy
+from architecture_diagrams.plugins.view_generators import get_view_generator
 from architecture_diagrams.orchestrator.compose import compose
 from architecture_diagrams.orchestrator.loader import discover_model_builders, discover_view_specs, discover_overlays
 from architecture_diagrams.orchestrator.select import select_views
@@ -22,6 +32,38 @@ def build_workspace_dsl(
     select_tags: Optional[Iterable[str]] = None,
     select_modules: Optional[Iterable[str]] = None,
     prune_to_views: bool = False,
+) -> str:
+    return build_workspace(
+        workspace_name=workspace_name,
+        project=project,
+        project_path=project_path,
+        models_root=models_root,
+        views_root=views_root,
+        select_names=select_names,
+        select_tags=select_tags,
+        select_modules=select_modules,
+        prune_to_views=prune_to_views,
+        exporter="structurizr",
+    )
+
+
+def build_workspace(
+    *,
+    workspace_name: str = "banking",
+    project: Optional[str] = None,
+    project_path: Optional[Path] = None,
+    models_root: Optional[Path] = None,
+    views_root: Optional[Path] = None,
+    select_names: Optional[Iterable[str]] = None,
+    select_tags: Optional[Iterable[str]] = None,
+    select_modules: Optional[Iterable[str]] = None,
+    prune_to_views: bool = False,
+    exporter: str = "structurizr",
+    tagging: Optional[Iterable[str]] = None,
+    view_generator: Optional[str] = None,
+    view_generator_config: Optional[Dict[str, Any]] = None,
+    enable_cache: bool = False,
+    cache_dir: Optional[Path] = None,
 ) -> str:
     root = Path(__file__).resolve().parents[2]
     external_root: Optional[Path] = None
@@ -141,10 +183,21 @@ def build_workspace_dsl(
     overlays = discover_overlays(root, project=project, extra_dirs=overlay_dirs)
     for apply in overlays:
         try:
-            apply(model)
+            apply(model)  # type: ignore[misc]
         except Exception:
             # Best-effort: do not fail the whole build if an overlay raises
             pass
+
+    # Apply tagging strategies, if requested
+    if tagging:
+        for name in tagging:
+            strat = get_tagging_strategy(str(name))
+            if strat is not None:
+                try:
+                    strat(model)
+                except Exception:
+                    # Non-fatal; continue with other strategies
+                    pass
 
     if extra_view_dirs:
         base_specs = discover_view_specs(root, extra_dirs=extra_view_dirs)
@@ -165,10 +218,64 @@ def build_workspace_dsl(
     for spec in selected:
         spec.build(model)
 
+    # Optional: generate derived views via plugin after base views are built
+    if view_generator:
+        gen = get_view_generator(view_generator)
+        if gen is not None:
+            cfg: Dict[str, Any] = dict(view_generator_config or {})
+            try:
+                derived = gen(model, cfg)
+                for spec in derived:
+                    try:
+                        spec.build(model)
+                    except Exception:
+                        # Skip problematic derived specs without failing the build
+                        pass
+            except Exception:
+                # Non-fatal view generation failure
+                pass
+
     if prune_to_views and selected:
         _prune_model_to_views(model)
 
-    return dump_dsl(model)
+    # Export via selected exporter, with optional caching
+    exp = get_exporter(exporter)
+    exporter_fn = exp if exp is not None else dump_dsl
+
+    if enable_cache:
+        try:
+            cache_root = cache_dir or (root / ".arch_diags_cache")
+            cache_root.mkdir(parents=True, exist_ok=True)
+            key = _compute_cache_key(
+                root=root,
+                project=project,
+                external_model_dirs=extra_model_dirs,
+                external_view_dirs=extra_view_dirs,
+                select_names=select_names,
+                select_tags=select_tags,
+                select_modules=select_modules,
+                exporter=exporter,
+                tagging=tagging,
+                view_generator=view_generator,
+                view_generator_config=view_generator_config,
+            )
+            cache_file = cache_root / f"{key}.out"
+            if cache_file.exists():
+                try:
+                    return cache_file.read_text()
+                except Exception:
+                    pass
+            out = exporter_fn(model)
+            try:
+                cache_file.write_text(out)
+            except Exception:
+                pass
+            return out
+        except Exception:
+            # On any cache error, fall back to direct export
+            return exporter_fn(model)
+
+    return exporter_fn(model)
 
 
 def _merge_view_inheritance(base_specs: list[ViewSpec], derived_specs: list[ViewSpec]) -> list[ViewSpec]:
@@ -224,7 +331,7 @@ def _merge_view_inheritance(base_specs: list[ViewSpec], derived_specs: list[View
     return merged
 
 
-def _prune_model_to_views(model) -> None:
+def _prune_model_to_views(model: Any) -> None:
     """Remove elements not referenced by the selected views.
 
     Keeps:
@@ -322,3 +429,61 @@ def _prune_model_to_views(model) -> None:
     # Prune people and relationships
     model.people = {pid: p for pid, p in model.people.items() if p.id in keep_ids}
     model.relationships = [r for r in model.relationships if hasattr(r.source, 'id') and hasattr(r.destination, 'id') and r.source.id in keep_ids and r.destination.id in keep_ids]
+
+
+def _compute_cache_key(
+    *,
+    root: Path,
+    project: Optional[str],
+    external_model_dirs: list[Path],
+    external_view_dirs: list[Path],
+    select_names: Optional[Iterable[str]],
+    select_tags: Optional[Iterable[str]],
+    select_modules: Optional[Iterable[str]],
+    exporter: str,
+    tagging: Optional[Iterable[str]],
+    view_generator: Optional[str],
+    view_generator_config: Optional[Dict[str, Any]],
+) -> str:
+    """Compute a stable cache key based on input files' mtimes and contents and build params."""
+    files: list[Path] = []
+    # Internal project files
+    if project:
+        base = root / "projects" / project
+        if base.exists():
+            for pat in ("models", "views"):
+                d = base / pat
+                if d.exists():
+                    files.extend(p for p in d.rglob("*.py"))
+            manifest = base / "project.toml"
+            if manifest.exists():
+                files.append(manifest)
+    # External dirs
+    for d in list(external_model_dirs) + list(external_view_dirs):
+        if d.exists():
+            files.extend(p for p in d.rglob("*.py"))
+
+    # Deduplicate
+    unique_files = sorted({str(p): p for p in files}.values(), key=lambda p: str(p))
+    h = hashlib.sha256()
+    # Params
+    params = {
+        "select_names": list(select_names or []),
+        "select_tags": list(select_tags or []),
+        "select_modules": list(select_modules or []),
+        "exporter": exporter,
+        "tagging": list(tagging or []),
+        "view_generator": view_generator or "",
+        "view_generator_config": view_generator_config or {},
+    }
+    h.update(json.dumps(params, sort_keys=True).encode("utf-8"))
+    for p in unique_files:
+        try:
+            st = p.stat()
+            h.update(str(p).encode("utf-8"))
+            h.update(str(int(st.st_mtime)).encode("utf-8"))
+            # Content hash
+            h.update(hashlib.sha256(p.read_bytes()).digest())
+        except Exception:
+            continue
+    return h.hexdigest()

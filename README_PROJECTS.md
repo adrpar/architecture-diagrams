@@ -70,7 +70,7 @@ def build(model: Optional[SystemLandscape] = None) -> SystemLandscape:
 CLI usage:
 
 - Generate DSL for the variant:
-  - `uv run arch-diags generate --project banking_redis --output .structurizr/workspace.dsl`
+  - `uv run architecture-diagrams generate --project banking_redis --output .structurizr/workspace.dsl`
 
 This overlay approach avoids duplication and keeps most entities untouched.
 
