@@ -3,9 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Callable, Dict, List, Optional, TypedDict
 
-from architecture_diagrams.orchestrator.specs import ViewSpec, IncludeRelByName
 from architecture_diagrams.c4.model import ViewType
-
+from architecture_diagrams.orchestrator.specs import IncludeRelByName, ViewSpec
 
 # View generator signature: (model, config) -> list[ViewSpec]
 GeneratorFn = Callable[[object, Dict[str, Any]], List[ViewSpec]]
@@ -103,8 +102,16 @@ def _delta_lineage(model: object, cfg: Dict[str, Any]) -> List[ViewSpec]:
         description=f"After: {a_cont}",
         includes=includes,
         filters=[
-            IncludeRelByName(from_name="*", to_name=f"{a_sys}/{a_cont}") if a_cont else IncludeRelByName(),
-            IncludeRelByName(from_name=f"{a_sys}/{a_cont}", to_name="*") if a_cont else IncludeRelByName(),
+            (
+                IncludeRelByName(from_name="*", to_name=f"{a_sys}/{a_cont}")
+                if a_cont
+                else IncludeRelByName()
+            ),
+            (
+                IncludeRelByName(from_name=f"{a_sys}/{a_cont}", to_name="*")
+                if a_cont
+                else IncludeRelByName()
+            ),
         ],
         smart=True if vt == ViewType.SYSTEM_LANDSCAPE else False,
     )

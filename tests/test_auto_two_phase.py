@@ -11,9 +11,9 @@ def test_auto_register_single_define_and_link():
     assert any(s.name == "Payments" for s in model.software_systems.values())
     rels = {(r.source.name, r.destination.name, r.description) for r in model.relationships}
     assert (
-        ("Web App", "Payments API", "Initiates payments") in {(s,d,desc) for (s,d,desc) in rels} or
-        any("Verifies account" in desc for (_,_,desc) in rels) or
-        any("Reads/Writes" == desc for (_,_,desc) in rels)
+        ("Web App", "Payments API", "Initiates payments") in {(s, d, desc) for (s, d, desc) in rels}
+        or any("Verifies account" in desc for (_, _, desc) in rels)
+        or any("Reads/Writes" == desc for (_, _, desc) in rels)
     )
 
 

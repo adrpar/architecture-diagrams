@@ -1,8 +1,9 @@
 from __future__ import annotations
+
 from typing import List
 
 from architecture_diagrams.c4.model import ViewType
-from architecture_diagrams.orchestrator.specs import ViewSpec, IncludeRelByName, ExcludeRelByName
+from architecture_diagrams.orchestrator.specs import ExcludeRelByName, IncludeRelByName, ViewSpec
 
 
 def get_views() -> List[ViewSpec]:
@@ -12,7 +13,7 @@ def get_views() -> List[ViewSpec]:
             name="Whole Banking systems overview",
             view_type=ViewType.SYSTEM_LANDSCAPE,
             description="All banking systems and external partners",
-            includes=[ ],
+            includes=[],
             smart=True,
         ),
         ViewSpec(
@@ -45,12 +46,24 @@ def get_views() -> List[ViewSpec]:
             ],
             smart=True,
             filters=[
-                IncludeRelByName(from_name="Customer Portal/Web App", to_name="Identity Provider/Auth Server"),
-                IncludeRelByName(from_name="Customer Portal/Web App", to_name="Payments/Payments API"),
-                IncludeRelByName(from_name="Mobile Banking/iOS App", to_name="Identity Provider/Auth Server"),
-                IncludeRelByName(from_name="Mobile Banking/iOS App", to_name="Payments/Payments API"),
-                IncludeRelByName(from_name="Mobile Banking/Android App", to_name="Identity Provider/Auth Server"),
-                IncludeRelByName(from_name="Mobile Banking/Android App", to_name="Payments/Payments API"),
+                IncludeRelByName(
+                    from_name="Customer Portal/Web App", to_name="Identity Provider/Auth Server"
+                ),
+                IncludeRelByName(
+                    from_name="Customer Portal/Web App", to_name="Payments/Payments API"
+                ),
+                IncludeRelByName(
+                    from_name="Mobile Banking/iOS App", to_name="Identity Provider/Auth Server"
+                ),
+                IncludeRelByName(
+                    from_name="Mobile Banking/iOS App", to_name="Payments/Payments API"
+                ),
+                IncludeRelByName(
+                    from_name="Mobile Banking/Android App", to_name="Identity Provider/Auth Server"
+                ),
+                IncludeRelByName(
+                    from_name="Mobile Banking/Android App", to_name="Payments/Payments API"
+                ),
             ],
         ),
         ViewSpec(
@@ -67,10 +80,18 @@ def get_views() -> List[ViewSpec]:
             ],
             smart=True,
             filters=[
-                IncludeRelByName(from_name="Payments/Fraud Service", to_name="Risk & ML/Model Serving"),
-                IncludeRelByName(from_name="Payments/Fraud Service", to_name="Payments/Payments API"),
-                IncludeRelByName(from_name="Risk & ML/Feature Store", to_name="Risk & ML/Model Serving"),
-                IncludeRelByName(from_name="Risk & ML/Training Pipeline", to_name="Reporting/ETL Job"),
+                IncludeRelByName(
+                    from_name="Payments/Fraud Service", to_name="Risk & ML/Model Serving"
+                ),
+                IncludeRelByName(
+                    from_name="Payments/Fraud Service", to_name="Payments/Payments API"
+                ),
+                IncludeRelByName(
+                    from_name="Risk & ML/Feature Store", to_name="Risk & ML/Model Serving"
+                ),
+                IncludeRelByName(
+                    from_name="Risk & ML/Training Pipeline", to_name="Reporting/ETL Job"
+                ),
             ],
         ),
         ViewSpec(
@@ -85,8 +106,12 @@ def get_views() -> List[ViewSpec]:
             ],
             smart=True,
             filters=[
-                IncludeRelByName(from_name="Payments/Clearing Adapter", to_name="Clearing House/Clearing API"),
-                IncludeRelByName(from_name="Payments/Clearing Adapter", to_name="Payments/Payments API"),
+                IncludeRelByName(
+                    from_name="Payments/Clearing Adapter", to_name="Clearing House/Clearing API"
+                ),
+                IncludeRelByName(
+                    from_name="Payments/Clearing Adapter", to_name="Payments/Payments API"
+                ),
             ],
         ),
         ViewSpec(
@@ -104,15 +129,23 @@ def get_views() -> List[ViewSpec]:
             smart=True,
             filters=[
                 # Exclude all outgoing from Kafka except to Event Router and ETL Job
-                ExcludeRelByName(from_name="Eventing/Kafka", to_name="*", but_include_names=[
-                    "Notifications/Event Router",
-                    "Reporting/ETL Job",
-                ]),
+                ExcludeRelByName(
+                    from_name="Eventing/Kafka",
+                    to_name="*",
+                    but_include_names=[
+                        "Notifications/Event Router",
+                        "Reporting/ETL Job",
+                    ],
+                ),
                 # Exclude all incoming to Kafka except from Ledger and Payments API
-                ExcludeRelByName(from_name="*", to_name="Eventing/Kafka", but_include_names=[
-                    "Core Banking/Ledger Service",
-                    "Payments/Payments API",
-                ]),
+                ExcludeRelByName(
+                    from_name="*",
+                    to_name="Eventing/Kafka",
+                    but_include_names=[
+                        "Core Banking/Ledger Service",
+                        "Payments/Payments API",
+                    ],
+                ),
             ],
         ),
         ViewSpec(
@@ -129,15 +162,23 @@ def get_views() -> List[ViewSpec]:
             smart=True,
             filters=[
                 # Exclude all outgoing from API Gateway except the three key destinations
-                ExcludeRelByName(from_name="Open Banking/API Gateway", to_name="*", but_include_names=[
-                    "Identity Provider/Auth Server",
-                    "Open Banking/Consent Service",
-                    "Core Banking/Accounts Service",
-                ]),
+                ExcludeRelByName(
+                    from_name="Open Banking/API Gateway",
+                    to_name="*",
+                    but_include_names=[
+                        "Identity Provider/Auth Server",
+                        "Open Banking/Consent Service",
+                        "Core Banking/Accounts Service",
+                    ],
+                ),
                 # Optionally, block any other incoming edges into Accounts except API Gateway
-                ExcludeRelByName(from_name="*", to_name="Core Banking/Accounts Service", but_include_names=[
-                    "Open Banking/API Gateway",
-                ]),
+                ExcludeRelByName(
+                    from_name="*",
+                    to_name="Core Banking/Accounts Service",
+                    but_include_names=[
+                        "Open Banking/API Gateway",
+                    ],
+                ),
             ],
         ),
         ViewSpec(
@@ -154,10 +195,16 @@ def get_views() -> List[ViewSpec]:
             smart=True,
             # Relationship name-based filters: include only specific directions
             filters=[
-                IncludeRelByName(from_name="Reporting/ETL Job", to_name="Core Banking/Accounts Service"),
+                IncludeRelByName(
+                    from_name="Reporting/ETL Job", to_name="Core Banking/Accounts Service"
+                ),
                 IncludeRelByName(from_name="Reporting/ETL Job", to_name="Payments/Payments API"),
-                IncludeRelByName(from_name="Payments/Payments API", to_name="Notifications/Event Router"),
-                IncludeRelByName(from_name="Core Banking/Ledger Service", to_name="Notifications/Event Router"),
+                IncludeRelByName(
+                    from_name="Payments/Payments API", to_name="Notifications/Event Router"
+                ),
+                IncludeRelByName(
+                    from_name="Core Banking/Ledger Service", to_name="Notifications/Event Router"
+                ),
             ],
         ),
         ViewSpec(
@@ -174,10 +221,18 @@ def get_views() -> List[ViewSpec]:
             ],
             smart=True,
             filters=[
-                IncludeRelByName(from_name="Core Banking/Accounts Service", to_name="Compliance/KYC Service"),
-                IncludeRelByName(from_name="Payments/Payments API", to_name="Compliance/Sanctions Screening"),
-                IncludeRelByName(from_name="Compliance/KYC Service", to_name="Compliance/Case Manager"),
-                IncludeRelByName(from_name="Compliance/Sanctions Screening", to_name="Compliance/Case Manager"),
+                IncludeRelByName(
+                    from_name="Core Banking/Accounts Service", to_name="Compliance/KYC Service"
+                ),
+                IncludeRelByName(
+                    from_name="Payments/Payments API", to_name="Compliance/Sanctions Screening"
+                ),
+                IncludeRelByName(
+                    from_name="Compliance/KYC Service", to_name="Compliance/Case Manager"
+                ),
+                IncludeRelByName(
+                    from_name="Compliance/Sanctions Screening", to_name="Compliance/Case Manager"
+                ),
             ],
         ),
         ViewSpec(
@@ -193,9 +248,15 @@ def get_views() -> List[ViewSpec]:
             ],
             smart=True,
             filters=[
-                IncludeRelByName(from_name="Open Banking/API Gateway", to_name="Identity Provider/Auth Server"),
-                IncludeRelByName(from_name="Open Banking/API Gateway", to_name="Open Banking/Consent Service"),
-                IncludeRelByName(from_name="Open Banking/API Gateway", to_name="Core Banking/Accounts Service"),
+                IncludeRelByName(
+                    from_name="Open Banking/API Gateway", to_name="Identity Provider/Auth Server"
+                ),
+                IncludeRelByName(
+                    from_name="Open Banking/API Gateway", to_name="Open Banking/Consent Service"
+                ),
+                IncludeRelByName(
+                    from_name="Open Banking/API Gateway", to_name="Core Banking/Accounts Service"
+                ),
             ],
         ),
         ViewSpec(

@@ -1,7 +1,7 @@
-import click
 import os
+from typing import Iterable, Optional
 
-from typing import Optional, Iterable
+import click
 
 from architecture_diagrams.orchestrator.build import build_workspace_dsl
 

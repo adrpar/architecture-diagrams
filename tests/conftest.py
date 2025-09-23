@@ -1,5 +1,5 @@
-import sys
 import pathlib
+import sys
 
 # Ensure project root (containing architecture_diagrams) is on sys.path when tests executed via `uv run`.
 ROOT = pathlib.Path(__file__).parent.parent

@@ -3,12 +3,21 @@
 Deprecated: prefer `SystemLandscape.add_smart_system_landscape_view()` and adding includes
 directly to the returned view. This function remains for backward compatibility.
 """
+
 from __future__ import annotations
+
 from typing import Iterable, Union
+
 from architecture_diagrams.c4.model import ElementBase, SoftwareSystem
 from architecture_diagrams.c4.system_landscape import SystemLandscape
 
-def attach_smart_system_landscape(model: SystemLandscape, name: str, description: str, includes: Iterable[Union[str, ElementBase, SoftwareSystem]]):  # pragma: no cover - legacy path
+
+def attach_smart_system_landscape(
+    model: SystemLandscape,
+    name: str,
+    description: str,
+    includes: Iterable[Union[str, ElementBase, SoftwareSystem]],
+):  # pragma: no cover - legacy path
     include_ids: list[str] = []
     for inc in includes:
         if isinstance(inc, str):

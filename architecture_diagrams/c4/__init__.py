@@ -4,25 +4,26 @@ This layer defines pure Python classes representing C4 model concepts.
 They are intentionally decoupled from pystructurizr so we can map them to
 other exporters in the future (PlantUML, JSON, etc.).
 """
+
 from .model import (
-    Person,
-    SoftwareSystem,
-    Container,
     Component,
-    DeploymentNode,
-    InfrastructureNode,
-    SoftwareSystemInstance,
-    ContainerInstance,
-    Relationship,
-    SystemContextView,
-    ContainerView,
     ComponentView,
-    SystemLandscapeView,
-    SmartSystemLandscapeView,
+    Container,
+    ContainerInstance,
+    ContainerView,
+    DeploymentNode,
     DeploymentView,
-    Styles,
     ElementStyle,
+    InfrastructureNode,
+    Person,
+    Relationship,
     RelationshipStyle,
+    SmartSystemLandscapeView,
+    SoftwareSystem,
+    SoftwareSystemInstance,
+    Styles,
+    SystemContextView,
+    SystemLandscapeView,
     ViewType,
 )
 from .system_landscape import SystemLandscape

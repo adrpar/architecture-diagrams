@@ -1,7 +1,8 @@
 from __future__ import annotations
-from importlib import import_module
-from importlib.util import spec_from_file_location, module_from_spec
+
 import sys
+from importlib import import_module
+from importlib.util import module_from_spec, spec_from_file_location
 from pathlib import Path
 from typing import List, Optional
 
@@ -18,15 +19,17 @@ def _ensure_projects_parent_on_syspath(paths: List[Path]) -> None:
         for p in paths:
             cur = p.resolve()
             # Walk up to find a 'projects' directory in the ancestors
-            while cur.name != 'projects' and cur.parent != cur:
+            while cur.name != "projects" and cur.parent != cur:
                 cur = cur.parent
-            if cur.name == 'projects':
+            if cur.name == "projects":
                 top = cur.parent
                 import sys as _sys
+
                 if str(top) not in _sys.path:
                     _sys.path.insert(0, str(top))
     except Exception:
         pass
+
 
 def preload_external_project_packages(paths: List[Path]) -> None:
     """Eagerly import external 'projects.<name>' packages for given model/view directories.
@@ -35,6 +38,7 @@ def preload_external_project_packages(paths: List[Path]) -> None:
     by explicitly creating sys.modules entries for 'projects.<name>'.
     """
     import sys as _sys
+
     try:
         for p in paths:
             cur = p.resolve()
@@ -44,7 +48,7 @@ def preload_external_project_packages(paths: List[Path]) -> None:
                 proj_dir = parent.parent
             else:
                 proj_dir = parent
-            if proj_dir.parent.name != 'projects':
+            if proj_dir.parent.name != "projects":
                 continue
             init_py = proj_dir / "__init__.py"
             if not init_py.exists():
@@ -63,7 +67,9 @@ def preload_external_project_packages(paths: List[Path]) -> None:
         pass
 
 
-def discover_model_builders(root: Path, project: Optional[str] = None, extra_dirs: Optional[List[Path]] = None) -> List[ModelBuilder]:
+def discover_model_builders(
+    root: Path, project: Optional[str] = None, extra_dirs: Optional[List[Path]] = None
+) -> List[ModelBuilder]:
     """Discover model builders from root-level projects only.
 
     Supported layout (enforced):
@@ -105,11 +111,13 @@ def discover_model_builders(root: Path, project: Optional[str] = None, extra_dir
                 sys.modules[mod_name] = mod
                 spec.loader.exec_module(mod)
             if hasattr(mod, "build"):
-                results.append(getattr(mod, "build"))
+                results.append(mod.build)
     return results
 
 
-def discover_view_specs(root: Path, project: Optional[str] = None, extra_dirs: Optional[List[Path]] = None) -> List[ViewSpec]:
+def discover_view_specs(
+    root: Path, project: Optional[str] = None, extra_dirs: Optional[List[Path]] = None
+) -> List[ViewSpec]:
     """Discover view specs (modules exporting get_views()) from root-level projects only.
 
     Supported layout (enforced):
@@ -150,17 +158,20 @@ def discover_view_specs(root: Path, project: Optional[str] = None, extra_dirs: O
                 sys.modules[mod_name] = mod
                 spec.loader.exec_module(mod)
             if hasattr(mod, "get_views"):
-                views = getattr(mod, "get_views")()
+                views = mod.get_views()
                 # Annotate each view with the originating project label
                 for v in views:
                     try:
-                        setattr(v, "project", project_label)
+                        v.project = project_label
                     except Exception:
                         pass
                 results.extend(views)
     return results
 
-def discover_overlays(root: Path, project: Optional[str] = None, extra_dirs: Optional[List[Path]] = None) -> List[object]:
+
+def discover_overlays(
+    root: Path, project: Optional[str] = None, extra_dirs: Optional[List[Path]] = None
+) -> List[object]:
     """Discover overlay apply() functions.
 
     Supported layout:

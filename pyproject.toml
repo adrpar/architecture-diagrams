@@ -42,6 +42,9 @@ target-version = ["py312"]
 [tool.ruff]
 line-length = 100
 target-version = "py312"
+extend-exclude = ["tests/fixtures"]
+
+[tool.ruff.lint]
 select = [
     "E",   # pycodestyle errors
     "F",   # Pyflakes
@@ -50,9 +53,6 @@ select = [
 ]
 ignore = [
     "E501",  # handled by black line-length
-]
-extend-exclude = [
-    "tests/fixtures",
 ]
 
 [tool.ruff.lint.isort]

@@ -1,5 +1,5 @@
-from architecture_diagrams.c4 import SystemLandscape
 from architecture_diagrams.adapter.pystructurizr_export import dump_dsl
+from architecture_diagrams.c4 import SystemLandscape
 
 
 def test_dump_minimal_model_contains_workspace_name():
@@ -23,5 +23,5 @@ def test_relationship_in_dsl():
     v.add(sys)
     dsl = dump_dsl(wm)
     # Relationship line might not be emitted by current pystructurizr without additional view configuration; ensure at least description present
-    assert 'uses' in dsl
+    assert "uses" in dsl
     assert len(wm.relationships) == 1

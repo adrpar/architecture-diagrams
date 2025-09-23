@@ -1,25 +1,40 @@
-from __future__ import annotations
 """Unified SystemLandscape class (formerly WorkspaceModel + registry merged)."""
-from typing import Dict, Tuple, Union, Iterable, Iterator, Any, Optional, overload, Set, List, Sequence, cast
+
+from __future__ import annotations
+
+from typing import (
+    Any,
+    Dict,
+    Iterable,
+    Iterator,
+    List,
+    Optional,
+    Sequence,
+    Set,
+    Tuple,
+    Union,
+    cast,
+    overload,
+)
+
 from .model import (
-    SoftwareSystem,
+    ComponentView,
     Container,
+    ContainerView,
+    DeploymentNode,
+    DeploymentView,
+    ElementBase,
     Person,
     Relationship,
-    DeploymentNode,
-    ElementBase,
-    SystemLandscapeView,
     SmartSystemLandscapeView,
-    SystemContextView,
-    ContainerView,
-    ComponentView,
-    DeploymentView,
+    SoftwareSystem,
     Styles,
+    SystemContextView,
+    SystemLandscapeView,
     ViewType,
 )
 
-
-    # _SLSystemProxy removed; SystemLandscape.__getitem__ now returns SoftwareSystem directly.
+# _SLSystemProxy removed; SystemLandscape.__getitem__ now returns SoftwareSystem directly.
 
 
 class SystemLandscape:
@@ -40,7 +55,14 @@ class SystemLandscape:
         self.groups: Dict[str, List[SoftwareSystem]] = {}
         self.deployment_nodes: Dict[str, DeploymentNode] = {}
         self.relationships: List[Relationship] = []
-        self.views: List[SystemLandscapeView | SystemContextView | ContainerView | ComponentView | DeploymentView | SmartSystemLandscapeView] = []
+        self.views: List[
+            SystemLandscapeView
+            | SystemContextView
+            | ContainerView
+            | ComponentView
+            | DeploymentView
+            | SmartSystemLandscapeView
+        ] = []
         self.styles = Styles()
         # ID tracking / uniqueness
         self._all_ids: Set[str] = set()
@@ -58,7 +80,9 @@ class SystemLandscape:
         self.people[p.id] = p
         return p
 
-    def add_software_system(self, name: str, description: str = "", **kwargs: Any) -> SoftwareSystem:
+    def add_software_system(
+        self, name: str, description: str = "", **kwargs: Any
+    ) -> SoftwareSystem:
         existing = next((s for s in self.software_systems.values() if s.name == name), None)
         if existing:
             if description and not existing.description:
@@ -70,7 +94,12 @@ class SystemLandscape:
             for c in existing.containers:
                 self._containers_index[(existing.name, c.name)] = c
             return existing
-        s = SoftwareSystem(name=name, description=description, technology=kwargs.get("technology"), tags=set(kwargs.get("tags", [])))
+        s = SoftwareSystem(
+            name=name,
+            description=description,
+            technology=kwargs.get("technology"),
+            tags=set(kwargs.get("tags", [])),
+        )
         self._register(s)
         self.software_systems[s.id] = s
         for c in s.containers:
@@ -80,19 +109,39 @@ class SystemLandscape:
     def assign_group(self, group_name: str, system: SoftwareSystem):
         self.groups.setdefault(group_name, []).append(system)
 
-    def add_deployment_node(self, name: str, description: str = "", **kwargs: Any) -> DeploymentNode:
-        node = DeploymentNode(name=name, description=description, technology=kwargs.get("technology"), tags=set(kwargs.get("tags", [])))
+    def add_deployment_node(
+        self, name: str, description: str = "", **kwargs: Any
+    ) -> DeploymentNode:
+        node = DeploymentNode(
+            name=name,
+            description=description,
+            technology=kwargs.get("technology"),
+            tags=set(kwargs.get("tags", [])),
+        )
         self._register(node)
         self.deployment_nodes[node.id] = node
         return node
 
-    def add_relationship(self, source: ElementBase, destination: ElementBase, description: str, technology: Optional[str] = None, tags: Optional[Iterable[str]] = None) -> Relationship:
+    def add_relationship(
+        self,
+        source: ElementBase,
+        destination: ElementBase,
+        description: str,
+        technology: Optional[str] = None,
+        tags: Optional[Iterable[str]] = None,
+    ) -> Relationship:
         ident = (source.name, destination.name, description, technology)
         if ident in self._relationship_identity:
             for r in reversed(self.relationships):
                 if (r.source.name, r.destination.name, r.description, r.technology) == ident:
                     return r
-        rel = Relationship(source=source, destination=destination, description=description, technology=technology, tags=set(tags or []))
+        rel = Relationship(
+            source=source,
+            destination=destination,
+            description=description,
+            technology=technology,
+            tags=set(tags or []),
+        )
         self.relationships.append(rel)
         self._relationship_identity.add(ident)
         return rel
@@ -124,8 +173,12 @@ class SystemLandscape:
         return c
 
     # ----- Views -----
-    def add_system_landscape_view(self, key: str, name: str, description: str = "") -> SystemLandscapeView:
-        v = SystemLandscapeView(key=key, name=name, view_type=ViewType.SYSTEM_LANDSCAPE, description=description)
+    def add_system_landscape_view(
+        self, key: str, name: str, description: str = ""
+    ) -> SystemLandscapeView:
+        v = SystemLandscapeView(
+            key=key, name=name, view_type=ViewType.SYSTEM_LANDSCAPE, description=description
+        )
         self.views.append(v)
         return v
 
@@ -134,23 +187,55 @@ class SystemLandscape:
         self.views.append(v)
         return v
 
-    def add_system_context_view(self, key: str, name: str, software_system: SoftwareSystem, description: str = "") -> SystemContextView:
-        v = SystemContextView(key=key, name=name, view_type=ViewType.SYSTEM_CONTEXT, software_system=software_system, description=description)
+    def add_system_context_view(
+        self, key: str, name: str, software_system: SoftwareSystem, description: str = ""
+    ) -> SystemContextView:
+        v = SystemContextView(
+            key=key,
+            name=name,
+            view_type=ViewType.SYSTEM_CONTEXT,
+            software_system=software_system,
+            description=description,
+        )
         self.views.append(v)
         return v
 
-    def add_container_view(self, key: str, name: str, software_system: SoftwareSystem, description: str = "") -> ContainerView:
-        v = ContainerView(key=key, name=name, view_type=ViewType.CONTAINER, software_system=software_system, description=description)
+    def add_container_view(
+        self, key: str, name: str, software_system: SoftwareSystem, description: str = ""
+    ) -> ContainerView:
+        v = ContainerView(
+            key=key,
+            name=name,
+            view_type=ViewType.CONTAINER,
+            software_system=software_system,
+            description=description,
+        )
         self.views.append(v)
         return v
 
-    def add_component_view(self, key: str, name: str, container: Container, description: str = "") -> ComponentView:
-        v = ComponentView(key=key, name=name, view_type=ViewType.COMPONENT, container=container, description=description)
+    def add_component_view(
+        self, key: str, name: str, container: Container, description: str = ""
+    ) -> ComponentView:
+        v = ComponentView(
+            key=key,
+            name=name,
+            view_type=ViewType.COMPONENT,
+            container=container,
+            description=description,
+        )
         self.views.append(v)
         return v
 
-    def add_deployment_view(self, key: str, name: str, environment: str = "", description: str = "") -> DeploymentView:
-        v = DeploymentView(key=key, name=name, view_type=ViewType.DEPLOYMENT, environment=environment, description=description)
+    def add_deployment_view(
+        self, key: str, name: str, environment: str = "", description: str = ""
+    ) -> DeploymentView:
+        v = DeploymentView(
+            key=key,
+            name=name,
+            view_type=ViewType.DEPLOYMENT,
+            environment=environment,
+            description=description,
+        )
         self.views.append(v)
         return v
 
@@ -165,7 +250,9 @@ class SystemLandscape:
         self._all_ids.add(element.id)
 
     # ----- Iteration over all elements -----
-    def iter_elements(self) -> Iterable[ElementBase]:  # pragma: no cover - traversal logic covered indirectly
+    def iter_elements(
+        self,
+    ) -> Iterable[ElementBase]:  # pragma: no cover - traversal logic covered indirectly
         for p in self.people.values():
             yield p
         for s in self.software_systems.values():
@@ -208,7 +295,9 @@ class SystemLandscape:
         system = self.get_system(system_name)
         found = next((c for c in system.containers if c.name == container_name), None)
         if not found:
-            raise ValueError(f"Expected container '{container_name}' to exist in system '{system_name}'")
+            raise ValueError(
+                f"Expected container '{container_name}' to exist in system '{system_name}'"
+            )
         # Backfill index for future fast lookup
         self._containers_index[key] = found
         return found
@@ -235,7 +324,7 @@ class SystemLandscape:
             sys_name, cont_name = key.split("/", 1)
             return self.get_container(sys_name, cont_name)
         # Person lookup prefix: model['person:User']
-        if isinstance(key, str) and key.startswith("person:"):
+        if key.startswith("person:"):
             return self.get_person(key.split(":", 1)[1])
         return self.get_system(key)
 
@@ -252,9 +341,11 @@ class SystemLandscape:
         return (s.name for s in self.software_systems.values())
 
     # Operator sugar: landscape << system
-    def __lshift__(self, other: SoftwareSystem) -> 'SystemLandscape':
+    def __lshift__(self, other: SoftwareSystem) -> "SystemLandscape":
         # Ensure uniqueness via add_software_system semantics
-        self.add_software_system(other.name, other.description, technology=other.technology, tags=other.tags)
+        self.add_software_system(
+            other.name, other.description, technology=other.technology, tags=other.tags
+        )
         # Merge containers from provided system (adopt pattern)
         for c in other.containers:
             self.add_container(other.name, c.name, c.description, c.technology, c.tags)
@@ -354,7 +445,9 @@ class SystemLandscape:
 
         if old_c is not None and old_c is not new_c:
             # Rewire relationships and update identity set
-            updated_identities: list[tuple[tuple[str, str, str, Optional[str]], tuple[str, str, str, Optional[str]]]] = []
+            updated_identities: list[
+                tuple[tuple[str, str, str, Optional[str]], tuple[str, str, str, Optional[str]]]
+            ] = []
             for rel in self.relationships:
                 old_ident = (rel.source.name, rel.destination.name, rel.description, rel.technology)
                 changed = False
@@ -365,7 +458,12 @@ class SystemLandscape:
                     rel.destination = new_c
                     changed = True
                 if changed:
-                    new_ident = (rel.source.name, rel.destination.name, rel.description, rel.technology)
+                    new_ident = (
+                        rel.source.name,
+                        rel.destination.name,
+                        rel.description,
+                        rel.technology,
+                    )
                     updated_identities.append((old_ident, new_ident))
             # Refresh identity set entries
             for old_ident, new_ident in updated_identities:
@@ -384,5 +482,6 @@ class SystemLandscape:
                 except Exception:
                     # Best-effort removal; keep running even if internal
                     pass
+
 
 __all__ = ["SystemLandscape"]

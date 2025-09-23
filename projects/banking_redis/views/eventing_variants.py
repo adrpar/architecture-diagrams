@@ -1,8 +1,9 @@
 from __future__ import annotations
+
 from typing import List
 
 from architecture_diagrams.c4.model import ViewType
-from architecture_diagrams.orchestrator.specs import ViewSpec, IncludeRelByName, ExcludeRelByName
+from architecture_diagrams.orchestrator.specs import ExcludeRelByName, IncludeRelByName, ViewSpec
 
 
 def get_views() -> List[ViewSpec]:
@@ -22,9 +23,13 @@ def get_views() -> List[ViewSpec]:
             ],
             smart=True,
             filters=[
-                IncludeRelByName(from_name="Core Banking/Ledger Service", to_name="Eventing/Redis Queue"),
+                IncludeRelByName(
+                    from_name="Core Banking/Ledger Service", to_name="Eventing/Redis Queue"
+                ),
                 IncludeRelByName(from_name="Payments/Payments API", to_name="Eventing/Redis Queue"),
-                IncludeRelByName(from_name="Eventing/Redis Queue", to_name="Notifications/Event Router"),
+                IncludeRelByName(
+                    from_name="Eventing/Redis Queue", to_name="Notifications/Event Router"
+                ),
                 # Removed Redis -> ETL to keep this view focused on routing to notifications
                 # IncludeRelByName(from_name="Eventing/Redis Queue", to_name="Reporting/ETL Job"),
             ],
@@ -52,9 +57,13 @@ def get_views() -> List[ViewSpec]:
                 ExcludeRelByName(from_name="*", to_name="Eventing/Kafka"),
                 ExcludeRelByName(from_name="Eventing/Kafka", to_name="*"),
                 # Keep Redis edges visible
-                IncludeRelByName(from_name="Core Banking/Ledger Service", to_name="Eventing/Redis Queue"),
+                IncludeRelByName(
+                    from_name="Core Banking/Ledger Service", to_name="Eventing/Redis Queue"
+                ),
                 IncludeRelByName(from_name="Payments/Payments API", to_name="Eventing/Redis Queue"),
-                IncludeRelByName(from_name="Eventing/Redis Queue", to_name="Notifications/Event Router"),
+                IncludeRelByName(
+                    from_name="Eventing/Redis Queue", to_name="Notifications/Event Router"
+                ),
                 IncludeRelByName(from_name="Eventing/Redis Queue", to_name="Reporting/ETL Job"),
             ],
         ),

@@ -1,9 +1,9 @@
 import click
 
-from architecture_diagrams.cli.dump import dump
 from architecture_diagrams.cli import generate as generate_cmd
-from architecture_diagrams.cli.list_views import list_views
+from architecture_diagrams.cli.dump import dump
 from architecture_diagrams.cli.list_modules import list_modules
+from architecture_diagrams.cli.list_views import list_views
 
 # Create the CLI group explicitly to keep type checkers happy
 cli = click.Group(help="Architecture diagram CLI (C4 -> Structurizr DSL)")

@@ -4,21 +4,31 @@ This exporter now always generates fresh DSL from the internal model. Any
 previous baseline/parity mode has been removed to simplify behavior and
 avoid snapshot coupling.
 """
+
 from __future__ import annotations
-from typing import Dict, Optional, Iterable
-from pystructurizr.dsl import Workspace, Person as DPerson, SoftwareSystem as DSoftwareSystem, Dumper, View as DView
+
+from typing import Dict, Iterable, Optional
+
+from pystructurizr.dsl import (
+    Dumper,
+    Person as DPerson,
+    SoftwareSystem as DSoftwareSystem,
+    View as DView,
+    Workspace,
+)
 
 from architecture_diagrams.c4 import (
-    SystemLandscapeView,
+    ComponentView,
+    ContainerView,
     SmartSystemLandscapeView,
     SystemContextView,
-    ContainerView,
-    ComponentView,
     SystemLandscape,
+    SystemLandscapeView,
 )
 from architecture_diagrams.extensions.smart_views import SmartView
 
 # NOTE: Deployment and infrastructure mapping left for future extension since not used yet.
+
 
 def to_pystructurizr(model: SystemLandscape) -> Workspace:
     ws = Workspace()
@@ -67,7 +77,9 @@ def to_pystructurizr(model: SystemLandscape) -> Workspace:
                 comp_key = (system.name, container.name, component.name)
                 comp = seen_components.get(comp_key)
                 if comp is None:
-                    comp = dc.Component(component.name, component.description, component.technology or "")
+                    comp = dc.Component(
+                        component.name, component.description, component.technology or ""
+                    )
                     seen_components[comp_key] = comp
                 element_mapping[component.id] = comp
                 id_to_model[component.id] = component
@@ -83,25 +95,32 @@ def to_pystructurizr(model: SystemLandscape) -> Workspace:
         try:
             src_model = id_to_model.get(rel.source.id)
             dst_model = id_to_model.get(rel.destination.id)
+
             # Walk up to parent systems
             def _parent_system(mobj: object) -> Optional[object]:
                 cur = mobj
                 for _ in range(4):
-                    parent = getattr(cur, 'parent', None)
+                    parent = getattr(cur, "parent", None)
                     if parent is None:
                         return None
                     from architecture_diagrams.c4.model import SoftwareSystem as _MS
+
                     if isinstance(parent, _MS):
                         return parent
                     cur = parent
                 return None
+
             ps = _parent_system(src_model) if src_model is not None else None
             pd = _parent_system(dst_model) if dst_model is not None else None
-            if ps is not None and pd is not None and getattr(ps, 'id', None) != getattr(pd, 'id', None):
-                d_src_sys = element_mapping.get(getattr(ps, 'id', ''))
-                d_dst_sys = element_mapping.get(getattr(pd, 'id', ''))
-                if d_src_sys is not None and d_dst_sys is not None and hasattr(d_src_sys, 'uses'):
-                    key = (getattr(d_src_sys, 'instname', ''), getattr(d_dst_sys, 'instname', ''))
+            if (
+                ps is not None
+                and pd is not None
+                and getattr(ps, "id", None) != getattr(pd, "id", None)
+            ):
+                d_src_sys = element_mapping.get(getattr(ps, "id", ""))
+                d_dst_sys = element_mapping.get(getattr(pd, "id", ""))
+                if d_src_sys is not None and d_dst_sys is not None and hasattr(d_src_sys, "uses"):
+                    key = (getattr(d_src_sys, "instname", ""), getattr(d_dst_sys, "instname", ""))
                     if key not in sys_level_edges:
                         # Add a lightweight aggregated relationship
                         d_src_sys.uses(d_dst_sys, "", "")  # type: ignore[arg-type]
@@ -136,7 +155,9 @@ def to_pystructurizr(model: SystemLandscape) -> Workspace:
             dview = ws.ComponentView(subj, view.name, view.description or view.name)  # type: ignore[arg-type]
         else:
             continue
-        for element in _normalized_include_elements(view, id_to_model, element_mapping):  # deterministic
+        for element in _normalized_include_elements(
+            view, id_to_model, element_mapping
+        ):  # deterministic
             dview.include(element)  # type: ignore[arg-type]
         # Note: pystructurizr's ws.System*View methods already register the view in ws.views,
         # so do NOT append again to avoid duplicates.
@@ -144,10 +165,12 @@ def to_pystructurizr(model: SystemLandscape) -> Workspace:
     # Smart system landscape views using SmartView (include * semantics handled by its dump)
     for view in [v for v in model.views if isinstance(v, SmartSystemLandscapeView)]:
         sv = SmartView(DView.Kind.SYSTEM_LANDSCAPE, None, view.name, view.description or view.name)
+
         # Deterministic ordering: slug sort
         def _slug(obj):
             n = getattr(obj, "name", "")
             return n.lower().replace(" ", "_")
+
         elements_for_view = []
         for element_id in view.include:
             element = element_mapping.get(element_id)
@@ -160,21 +183,30 @@ def to_pystructurizr(model: SystemLandscape) -> Workspace:
     return ws
 
 
-def _normalized_include_elements(view: object, id_to_model: Dict[str, object], element_mapping: Dict[str, object]) -> Iterable[object]:
+def _normalized_include_elements(
+    view: object, id_to_model: Dict[str, object], element_mapping: Dict[str, object]
+) -> Iterable[object]:
     """Yield DSL elements to include, normalizing per view type rules.
 
     - SystemContextView: allow Person and SoftwareSystem; map Container/Component to parent SoftwareSystem.
     - ContainerView: allow Person, SoftwareSystem, and Containers within the subject software system; map external Container/Component to parent SoftwareSystem.
     - ComponentView: allow Person, SoftwareSystem, Containers (external), and Components within the subject container; map external Component to its parent Container.
     """
-    from architecture_diagrams.c4.model import Person as MPerson, SoftwareSystem as MSystem, Container as MContainer, Component as MComponent
-    from architecture_diagrams.c4.model import SystemContextView as MSystemContextView, ContainerView as MContainerView, ComponentView as MComponentView
+    from architecture_diagrams.c4.model import (
+        Component as MComponent,
+        ComponentView as MComponentView,
+        Container as MContainer,
+        ContainerView as MContainerView,
+        Person as MPerson,
+        SoftwareSystem as MSystem,
+        SystemContextView as MSystemContextView,
+    )
 
     def _parent_system(obj: object) -> Optional[object]:
         # Walk parent pointers until a SoftwareSystem or None
         cur = obj
         for _ in range(3):
-            parent = getattr(cur, 'parent', None)
+            parent = getattr(cur, "parent", None)
             if parent is None:
                 return None
             if isinstance(parent, MSystem):
@@ -185,7 +217,7 @@ def _normalized_include_elements(view: object, id_to_model: Dict[str, object], e
     def _parent_container(obj: object) -> Optional[object]:
         cur = obj
         for _ in range(3):
-            parent = getattr(cur, 'parent', None)
+            parent = getattr(cur, "parent", None)
             if parent is None:
                 return None
             if isinstance(parent, MContainer):
@@ -193,7 +225,7 @@ def _normalized_include_elements(view: object, id_to_model: Dict[str, object], e
             cur = parent
         return None
 
-    include_ids = sorted(getattr(view, 'include', set()))
+    include_ids = sorted(getattr(view, "include", set()))
 
     if isinstance(view, MSystemContextView):
         for eid in include_ids:
@@ -207,14 +239,14 @@ def _normalized_include_elements(view: object, id_to_model: Dict[str, object], e
             elif isinstance(m, (MContainer, MComponent)):
                 ps = _parent_system(m)
                 if ps is not None:
-                    el = element_mapping.get(getattr(ps, 'id'))
+                    el = element_mapping.get(ps.id)
                     if el is not None:
                         yield el
         return
 
     if isinstance(view, MContainerView):
-        subj: Optional[object] = getattr(view, 'software_system', None)
-        subj_id = getattr(subj, 'id', None)
+        subj: Optional[object] = getattr(view, "software_system", None)
+        subj_id = getattr(subj, "id", None)
         for eid in include_ids:
             m = id_to_model.get(eid)
             if m is None:
@@ -230,27 +262,27 @@ def _normalized_include_elements(view: object, id_to_model: Dict[str, object], e
             elif isinstance(m, MContainer):
                 # Only include containers within the subject system; otherwise include the parent system
                 ps = _parent_system(m)
-                if ps is not None and getattr(ps, 'id', None) == subj_id:
+                if ps is not None and getattr(ps, "id", None) == subj_id:
                     el = element_mapping.get(eid)
                     if el is not None:
                         yield el
                 else:
                     if ps is not None:
-                        el = element_mapping.get(getattr(ps, 'id'))
+                        el = element_mapping.get(ps.id)
                         if el is not None:
                             yield el
             elif isinstance(m, MComponent):
                 # Components are not directly included in container view; include parent system instead
                 ps = _parent_system(m)
                 if ps is not None:
-                    el = element_mapping.get(getattr(ps, 'id'))
+                    el = element_mapping.get(ps.id)
                     if el is not None:
                         yield el
         return
 
     if isinstance(view, MComponentView):
-        subj: Optional[object] = getattr(view, 'container', None)
-        subj_id = getattr(subj, 'id', None)
+        subj: Optional[object] = getattr(view, "container", None)
+        subj_id = getattr(subj, "id", None)
         for eid in include_ids:
             m = id_to_model.get(eid)
             if m is None:
@@ -267,7 +299,7 @@ def _normalized_include_elements(view: object, id_to_model: Dict[str, object], e
             elif isinstance(m, MComponent):
                 # Only include components within the subject container
                 pc = _parent_container(m)
-                if pc is not None and getattr(pc, 'id', None) == subj_id:
+                if pc is not None and getattr(pc, "id", None) == subj_id:
                     el = element_mapping.get(eid)
                     if el is not None:
                         yield el
@@ -279,20 +311,29 @@ def _normalized_include_elements(view: object, id_to_model: Dict[str, object], e
         if el is not None:
             yield el
 
-def _resolve_view_subject(view: object, id_to_model: Dict[str, object], element_mapping: Dict[str, object]) -> Optional[object]:
+
+def _resolve_view_subject(
+    view: object, id_to_model: Dict[str, object], element_mapping: Dict[str, object]
+) -> Optional[object]:
     """Return the correct subject element for the view header.
 
     - SystemContextView expects a SoftwareSystem
     - ContainerView expects a SoftwareSystem (subject system)
     - ComponentView expects a Container
     """
-    from architecture_diagrams.c4.model import Person as MPerson, SoftwareSystem as MSystem, Container as MContainer, Component as MComponent
-    from architecture_diagrams.c4.model import SystemContextView as MSystemContextView, ContainerView as MContainerView, ComponentView as MComponentView
+    from architecture_diagrams.c4.model import (
+        Component as MComponent,
+        ComponentView as MComponentView,
+        Container as MContainer,
+        ContainerView as MContainerView,
+        SoftwareSystem as MSystem,
+        SystemContextView as MSystemContextView,
+    )
 
     def _parent_system(obj: object) -> Optional[object]:
         cur = obj
         for _ in range(4):
-            parent = getattr(cur, 'parent', None)
+            parent = getattr(cur, "parent", None)
             if parent is None:
                 return None
             if isinstance(parent, MSystem):
@@ -303,7 +344,7 @@ def _resolve_view_subject(view: object, id_to_model: Dict[str, object], element_
     def _parent_container(obj: object) -> Optional[object]:
         cur = obj
         for _ in range(4):
-            parent = getattr(cur, 'parent', None)
+            parent = getattr(cur, "parent", None)
             if parent is None:
                 return None
             if isinstance(parent, MContainer):
@@ -312,51 +353,51 @@ def _resolve_view_subject(view: object, id_to_model: Dict[str, object], element_
         return None
 
     if isinstance(view, MSystemContextView):
-        subj = getattr(view, 'software_system', None)
+        subj = getattr(view, "software_system", None)
         if subj is None:
             return None
-        m = id_to_model.get(getattr(subj, 'id', '' ))
+        m = id_to_model.get(getattr(subj, "id", ""))
         if m is None:
             return None
         if isinstance(m, MSystem):
-            return element_mapping.get(getattr(subj, 'id', ''))
+            return element_mapping.get(getattr(subj, "id", ""))
         if isinstance(m, (MContainer, MComponent)):
             ps = _parent_system(m)
             if ps is None:
                 return None
-            return element_mapping.get(getattr(ps, 'id', ''))
+            return element_mapping.get(getattr(ps, "id", ""))
         return None
 
     if isinstance(view, MContainerView):
-        subj = getattr(view, 'software_system', None)
+        subj = getattr(view, "software_system", None)
         if subj is None:
             return None
-        m = id_to_model.get(getattr(subj, 'id', '' ))
+        m = id_to_model.get(getattr(subj, "id", ""))
         if m is None:
             return None
         if isinstance(m, MSystem):
-            return element_mapping.get(getattr(subj, 'id', ''))
+            return element_mapping.get(getattr(subj, "id", ""))
         if isinstance(m, (MContainer, MComponent)):
             ps = _parent_system(m)
             if ps is None:
                 return None
-            return element_mapping.get(getattr(ps, 'id', ''))
+            return element_mapping.get(getattr(ps, "id", ""))
         return None
 
     if isinstance(view, MComponentView):
-        subj = getattr(view, 'container', None)
+        subj = getattr(view, "container", None)
         if subj is None:
             return None
-        m = id_to_model.get(getattr(subj, 'id', '' ))
+        m = id_to_model.get(getattr(subj, "id", ""))
         if m is None:
             return None
         if isinstance(m, MContainer):
-            return element_mapping.get(getattr(subj, 'id', ''))
+            return element_mapping.get(getattr(subj, "id", ""))
         if isinstance(m, MComponent):
             pc = _parent_container(m)
             if pc is None:
                 return None
-            return element_mapping.get(getattr(pc, 'id', ''))
+            return element_mapping.get(getattr(pc, "id", ""))
         return None
 
     return None
@@ -397,24 +438,19 @@ def _ensure_group_separator(dsl: str) -> str:
         return dsl
     lines = dsl.splitlines()
     for i, line in enumerate(lines):
-        if line.strip() == 'model {':
-            prop_block = [
-                '    properties {',
-                '      "structurizr.groupSeparator" "/"',
-                '    }'
-            ]
-            lines[i+1:i+1] = prop_block
-            return '\n'.join(lines)
+        if line.strip() == "model {":
+            prop_block = ["    properties {", '      "structurizr.groupSeparator" "/"', "    }"]
+            lines[i + 1 : i + 1] = prop_block
+            return "\n".join(lines)
     return dsl
 
-    
 
 def _inject_or_augment_styles(dsl: str, model: SystemLandscape) -> str:
-    if 'views {' not in dsl:
+    if "views {" not in dsl:
         return dsl
     element_styles = model.styles.element_styles
     rel_styles = model.styles.relationship_styles
-    synthesized = ('styles {' not in dsl) and (not element_styles and not rel_styles)
+    synthesized = ("styles {" not in dsl) and (not element_styles and not rel_styles)
     lines = dsl.splitlines()
 
     # Locate existing styles block if present
@@ -422,12 +458,12 @@ def _inject_or_augment_styles(dsl: str, model: SystemLandscape) -> str:
     style_end = None
     depth = 0
     for i, line in enumerate(lines):
-        if 'styles {' in line:
+        if "styles {" in line:
             style_start = i
             depth = 0
         if style_start is not None:
-            depth += line.count('{')
-            depth -= line.count('}')
+            depth += line.count("{")
+            depth -= line.count("}")
             if depth == 0:
                 style_end = i
                 break
@@ -437,46 +473,46 @@ def _inject_or_augment_styles(dsl: str, model: SystemLandscape) -> str:
     in_landscape = False
     saw_auto = False
     for i, line in enumerate(lines):
-        if line.strip().startswith('systemLandscape'):
+        if line.strip().startswith("systemLandscape"):
             in_landscape = True
         elif in_landscape:
-            if 'autoLayout' in line:
+            if "autoLayout" in line:
                 saw_auto = True
-            if line.strip() == '}' and saw_auto:
+            if line.strip() == "}" and saw_auto:
                 insert_index = i + 1
                 break
     if insert_index is None:
         for i, line in enumerate(lines):
-            if line.strip() == 'views {':
+            if line.strip() == "views {":
                 insert_index = i + 1
                 break
 
     # If no styles block exists, synthesize one with defaults
     if style_start is None and insert_index is not None:
-        style_block: list[str] = ['    styles {']
+        style_block: list[str] = ["    styles {"]
         if synthesized:
             defaults = [
-                ('Element', {'shape': 'RoundedBox'}),
-                ('Software System', {'background': '#1168bd', 'color': '#ffffff'}),
-                ('Container', {'background': '#438dd5', 'color': '#ffffff'}),
-                ('Component', {'background': '#85bbf0', 'color': '#000000'}),
-                ('Person', {'background': '#08427b', 'color': '#ffffff', 'shape': 'Person'}),
-                ('Infrastructure Node', {'background': '#ffffff'}),
-                ('database', {'shape': 'Cylinder'}),
-                ('Container', {'shape': 'RoundedBox', 'description': 'true'}),
-                ('Person', {'shape': 'Person'}),
-                ('external', {'background': '#808080'}),
-                ('storage', {'shape': 'Cylinder'}),
-                ('library', {'shape': 'Folder'}),
+                ("Element", {"shape": "RoundedBox"}),
+                ("Software System", {"background": "#1168bd", "color": "#ffffff"}),
+                ("Container", {"background": "#438dd5", "color": "#ffffff"}),
+                ("Component", {"background": "#85bbf0", "color": "#000000"}),
+                ("Person", {"background": "#08427b", "color": "#ffffff", "shape": "Person"}),
+                ("Infrastructure Node", {"background": "#ffffff"}),
+                ("database", {"shape": "Cylinder"}),
+                ("Container", {"shape": "RoundedBox", "description": "true"}),
+                ("Person", {"shape": "Person"}),
+                ("external", {"background": "#808080"}),
+                ("storage", {"shape": "Cylinder"}),
+                ("library", {"shape": "Folder"}),
                 # Overlay/delta emphasis
-                ('proposed', {'background': '#e0f7fa', 'color': '#004d40'}),
-                ('deprecated', {'background': '#ffebee', 'color': '#b71c1c'}),
+                ("proposed", {"background": "#e0f7fa", "color": "#004d40"}),
+                ("deprecated", {"background": "#ffebee", "color": "#b71c1c"}),
             ]
             for tag, attrs in defaults:
                 style_block.append(f'      element "{tag}" {{')
                 for k, v in attrs.items():
                     style_block.append(f'        {k} "{v}"')
-                style_block.append('      }')
+                style_block.append("      }")
         else:
             # Emit configured styles from model
             for es in element_styles:
@@ -487,54 +523,56 @@ def _inject_or_augment_styles(dsl: str, model: SystemLandscape) -> str:
                     style_block.append(f'        color "{es.color}"')
                 if es.shape:
                     style_block.append(f'        shape "{es.shape}"')
-                if getattr(es, 'opacity', None) is not None:
+                if getattr(es, "opacity", None) is not None:
                     style_block.append(f'        opacity "{es.opacity}"')
-                style_block.append('      }')
+                style_block.append("      }")
             for rs in rel_styles:
                 style_block.append(f'      relationship "{rs.tag}" {{')
                 if rs.color:
                     style_block.append(f'        color "{rs.color}"')
-                if getattr(rs, 'dashed', None) is not None:
+                if getattr(rs, "dashed", None) is not None:
                     style_block.append(f'        dashed "{str(rs.dashed).lower()}"')
-                if getattr(rs, 'thickness', None) is not None:
+                if getattr(rs, "thickness", None) is not None:
                     style_block.append(f'        thickness "{rs.thickness}"')
-                style_block.append('      }')
-        style_block.append('    }')
+                style_block.append("      }")
+        style_block.append("    }")
         lines[insert_index:insert_index] = style_block
-        return '\n'.join(lines)
+        return "\n".join(lines)
 
     # If styles block exists, ensure baseline-required entries are present
     baseline_required = [
-        ('Container', {'shape': 'RoundedBox', 'description': 'true'}),
-        ('Person', {'shape': 'Person'}),
-        ('external', {'background': '#808080'}),
-        ('storage', {'shape': 'Cylinder'}),
-        ('library', {'shape': 'Folder'}),
-        ('proposed', {'background': '#e0f7fa', 'color': '#004d40'}),
-        ('deprecated', {'background': '#ffebee', 'color': '#b71c1c'}),
+        ("Container", {"shape": "RoundedBox", "description": "true"}),
+        ("Person", {"shape": "Person"}),
+        ("external", {"background": "#808080"}),
+        ("storage", {"shape": "Cylinder"}),
+        ("library", {"shape": "Folder"}),
+        ("proposed", {"background": "#e0f7fa", "color": "#004d40"}),
+        ("deprecated", {"background": "#ffebee", "color": "#b71c1c"}),
     ]
     if style_start is not None and style_end is not None:
-        existing_block = '\n'.join(lines[style_start:style_end+1])
+        existing_block = "\n".join(lines[style_start : style_end + 1])
         additions: list[str] = []
         for tag, attrs in baseline_required:
             if f'element "{tag}"' not in existing_block:
                 additions.append(f'      element "{tag}" {{')
                 for k, v in attrs.items():
                     additions.append(f'        {k} "{v}"')
-                additions.append('      }')
+                additions.append("      }")
         if additions:
             lines[style_end:style_end] = additions
-    return '\n'.join(lines)
+    return "\n".join(lines)
+
 
 def _inject_workspace_name_comment(dsl: str, model: SystemLandscape) -> str:
     if model.name in dsl:
         return dsl
     lines = dsl.splitlines()
     for i, line in enumerate(lines):
-        if line.strip().startswith('workspace'):
-            lines.insert(i + 1, f'  // {model.name}')
+        if line.strip().startswith("workspace"):
+            lines.insert(i + 1, f"  // {model.name}")
             break
-    return '\n'.join(lines)
+    return "\n".join(lines)
+
 
 def _reorder_relationships_after_declarations(dsl: str) -> str:
     """Move all relationship lines ("a -> b ...") to the end of the model block.
@@ -548,11 +586,11 @@ def _reorder_relationships_after_declarations(dsl: str) -> str:
     model_end = None
     depth = 0
     for i, line in enumerate(lines):
-        if line.strip() == 'model {':
+        if line.strip() == "model {":
             model_start = i
             depth = 1
             for j in range(i + 1, len(lines)):
-                depth += lines[j].count('{') - lines[j].count('}')
+                depth += lines[j].count("{") - lines[j].count("}")
                 if depth == 0:
                     model_end = j
                     break
@@ -564,21 +602,22 @@ def _reorder_relationships_after_declarations(dsl: str) -> str:
     kept: list[str] = []
     for idx in range(model_start + 1, model_end):
         line = lines[idx]
-        if '->' in line and '"' in line:
+        if "->" in line and '"' in line:
             rel_lines.append(line)
         else:
             kept.append(line)
     # Rebuild: model { + kept + rel_lines + closing
     new_lines = []
-    new_lines.extend(lines[:model_start + 1])
+    new_lines.extend(lines[: model_start + 1])
     new_lines.extend(kept)
     if rel_lines:
         # Ensure a blank separator for readability
-        if kept and kept[-1].strip() != '':
-            new_lines.append('')
+        if kept and kept[-1].strip() != "":
+            new_lines.append("")
         new_lines.extend(rel_lines)
     new_lines.extend(lines[model_end:])
-    return '\n'.join(new_lines)
+    return "\n".join(new_lines)
+
 
 def _canonicalize_variable_suffixes(dsl: str) -> str:
     """Best-effort cleanup: rename variables like foo_2 -> foo (and all references)
@@ -590,7 +629,11 @@ def _canonicalize_variable_suffixes(dsl: str) -> str:
     - Never override an existing declared base name.
     """
     import re
-    decl_re = re.compile(r'^(\s*)([A-Za-z0-9_]+)\s*=\s*(SoftwareSystem|Container|Component|Person)\s+"([^"\\]+)"', re.MULTILINE)
+
+    decl_re = re.compile(
+        r'^(\s*)([A-Za-z0-9_]+)\s*=\s*(SoftwareSystem|Container|Component|Person)\s+"([^"\\]+)"',
+        re.MULTILINE,
+    )
     # Collect declarations and group by base
     declared: dict[str, str] = {}  # var -> type
     base_groups: dict[str, list[str]] = {}
@@ -598,7 +641,7 @@ def _canonicalize_variable_suffixes(dsl: str) -> str:
         var = m.group(2)
         typ = m.group(3)
         declared[var] = typ
-        base_m = re.match(r'^(.*)_([0-9]+)$', var)
+        base_m = re.match(r"^(.*)_([0-9]+)$", var)
         base = base_m.group(1) if base_m else var
         base_groups.setdefault(base, []).append(var)
 
@@ -607,7 +650,7 @@ def _canonicalize_variable_suffixes(dsl: str) -> str:
     for base, vars_for_base in base_groups.items():
         if base in declared:
             continue  # base already declared, skip
-        if len(vars_for_base) == 1 and re.match(r'.*_\d+$', vars_for_base[0]):
+        if len(vars_for_base) == 1 and re.match(r".*_\d+$", vars_for_base[0]):
             renames[vars_for_base[0]] = base
 
     if not renames:
@@ -618,8 +661,13 @@ def _canonicalize_variable_suffixes(dsl: str) -> str:
         word = match.group(0)
         return renames.get(word, word)
 
-    pattern = re.compile(r'\b(' + '|'.join(re.escape(k) for k in sorted(renames.keys(), key=len, reverse=True)) + r')\b')
+    pattern = re.compile(
+        r"\b("
+        + "|".join(re.escape(k) for k in sorted(renames.keys(), key=len, reverse=True))
+        + r")\b"
+    )
     return pattern.sub(_replace, dsl)
+
 
 def _inject_element_tags(dsl: str, model: SystemLandscape) -> str:
     """Add tags lines into element declarations based on model element.tags.
@@ -635,8 +683,8 @@ def _inject_element_tags(dsl: str, model: SystemLandscape) -> str:
     # Fast exit if no tags anywhere
     has_any_tags = False
     for el in model.iter_elements():  # type: ignore[attr-defined]
-        if getattr(el, 'tags', None):
-            if len(getattr(el, 'tags')) > 0:  # type: ignore[arg-type]
+        if getattr(el, "tags", None):
+            if len(el.tags) > 0:  # type: ignore[arg-type]
                 has_any_tags = True
                 break
     if not has_any_tags:
@@ -644,20 +692,23 @@ def _inject_element_tags(dsl: str, model: SystemLandscape) -> str:
 
     # Build declaration index: var -> info and track block ranges
     lines = dsl.splitlines()
-    decl_re = re.compile(r'^(\s*)([A-Za-z0-9_]+)\s*=\s*(SoftwareSystem|Container|Component|Person)\s+"([^"\\]+)"')
+    decl_re = re.compile(
+        r'^(\s*)([A-Za-z0-9_]+)\s*=\s*(SoftwareSystem|Container|Component|Person)\s+"([^"\\]+)"'
+    )
     # Track a stack of (var, type, start_index)
     stack: list[tuple[str, str, int]] = []
     var_info: dict[str, dict[str, object]] = {}
+
     # Helper to find parent system/container display name for a var from current stack
     def current_parents() -> tuple[str | None, str | None]:
         ps: str | None = None
         pc: str | None = None
         for pvar, ptyp, _ in reversed(stack):
             info = var_info.get(pvar, {})
-            if ps is None and ptyp == 'SoftwareSystem':
-                ps = str(info.get('displayName')) if info.get('displayName') is not None else None
-            if pc is None and ptyp == 'Container':
-                pc = str(info.get('displayName')) if info.get('displayName') is not None else None
+            if ps is None and ptyp == "SoftwareSystem":
+                ps = str(info.get("displayName")) if info.get("displayName") is not None else None
+            if pc is None and ptyp == "Container":
+                pc = str(info.get("displayName")) if info.get("displayName") is not None else None
             if ps and pc:
                 break
         return ps, pc
@@ -669,21 +720,21 @@ def _inject_element_tags(dsl: str, model: SystemLandscape) -> str:
             leading, var, typ, disp = m.group(1), m.group(2), m.group(3), m.group(4)
             ps, pc = current_parents()
             var_info[var] = {
-                'type': typ,
-                'displayName': disp,
-                'parentSystemDisplay': ps,
-                'parentContainerDisplay': pc,
-                'leading': leading,
-                'start': i,
-                'hasTags': False,
+                "type": typ,
+                "displayName": disp,
+                "parentSystemDisplay": ps,
+                "parentContainerDisplay": pc,
+                "leading": leading,
+                "start": i,
+                "hasTags": False,
             }
             # If declaration opens a block here, push to stack
-            if '{' in line and '}' not in line:
+            if "{" in line and "}" not in line:
                 stack.append((var, typ, i))
             continue
         # Track entering/exiting blocks by braces to maintain stack
-        open_count = line.count('{')
-        close_count = line.count('}')
+        open_count = line.count("{")
+        close_count = line.count("}")
         for _ in range(open_count):
             # Non-declaration block; push a sentinel to keep depth alignment
             stack.append(("", "", i))
@@ -707,14 +758,14 @@ def _inject_element_tags(dsl: str, model: SystemLandscape) -> str:
             var, typ = m.group(2), m.group(3)
             # Assume block starts at this line if '{' present, else when a '{' appears in subsequent lines
             start_idx = i
-            if '{' in line:
+            if "{" in line:
                 stack2.append((var, typ, start_idx))
             continue
         # Track open braces to find ends
-        if '{' in line and not decl_re.match(line):
+        if "{" in line and not decl_re.match(line):
             # Anonymous block, push sentinel
             stack2.append(("", "", i))
-        if '}' in line:
+        if "}" in line:
             # Pop until we close a declaration block
             while stack2:
                 v, t, sidx = stack2.pop()
@@ -730,14 +781,14 @@ def _inject_element_tags(dsl: str, model: SystemLandscape) -> str:
         start, end = rng
         # Check if tags already present in block
         for j in range(start, end + 1):
-            if lines[j].strip().startswith('tags '):
+            if lines[j].strip().startswith("tags "):
                 return
         # Find line after declaration or after a technology line
         insert_at = start + 1
         for j in range(start + 1, min(end + 1, start + 6)):
-            if 'technology ' in lines[j]:
+            if "technology " in lines[j]:
                 insert_at = j + 1
-        leading_ws = var_info.get(var, {}).get('leading', '') or ''
+        leading_ws = var_info.get(var, {}).get("leading", "") or ""
         # Element declarations are indented by two spaces more inside the block
         tag_line = f"{leading_ws}  tags \"{', '.join(sorted(tags))}\""
         lines.insert(insert_at, tag_line)
@@ -761,40 +812,63 @@ def _inject_element_tags(dsl: str, model: SystemLandscape) -> str:
             return []
 
     for var, info in var_info.items():
-        typ = info.get('type')
-        disp = info.get('displayName')
-        ps_disp = info.get('parentSystemDisplay')
-        pc_disp = info.get('parentContainerDisplay')
+        typ = info.get("type")
+        disp = info.get("displayName")
+        ps_disp = info.get("parentSystemDisplay")
+        pc_disp = info.get("parentContainerDisplay")
 
         tags: list[str] = []
-        if typ == 'Person' and isinstance(disp, str):
+        if typ == "Person" and isinstance(disp, str):
             p = people_by_name.get(disp)
-            tags = _norm_tags(getattr(p, 'tags', [])) if p is not None else []
-        elif typ == 'SoftwareSystem' and isinstance(disp, str):
+            tags = _norm_tags(getattr(p, "tags", [])) if p is not None else []
+        elif typ == "SoftwareSystem" and isinstance(disp, str):
             s = systems_by_name.get(disp)
-            tags = _norm_tags(getattr(s, 'tags', [])) if s is not None else []
-        elif typ == 'Container' and isinstance(disp, str) and isinstance(ps_disp, str):
+            tags = _norm_tags(getattr(s, "tags", [])) if s is not None else []
+        elif typ == "Container" and isinstance(disp, str) and isinstance(ps_disp, str):
             s = systems_by_name.get(ps_disp)
             if s is not None:
-                c = next((c for c in getattr(s, 'containers', []) if getattr(c, 'name', '') == disp), None)
+                c = next(
+                    (c for c in getattr(s, "containers", []) if getattr(c, "name", "") == disp),
+                    None,
+                )
                 if c is not None:
-                    tags = _norm_tags(getattr(c, 'tags', []))
-        elif typ == 'Component' and isinstance(disp, str) and isinstance(ps_disp, str) and isinstance(pc_disp, str):
+                    tags = _norm_tags(getattr(c, "tags", []))
+        elif (
+            typ == "Component"
+            and isinstance(disp, str)
+            and isinstance(ps_disp, str)
+            and isinstance(pc_disp, str)
+        ):
             s = systems_by_name.get(ps_disp)
             if s is not None:
-                cont = next((c for c in getattr(s, 'containers', []) if getattr(c, 'name', '') == pc_disp), None)
+                cont = next(
+                    (c for c in getattr(s, "containers", []) if getattr(c, "name", "") == pc_disp),
+                    None,
+                )
                 if cont is not None:
-                    comp = next((cm for cm in getattr(cont, 'components', []) if getattr(cm, 'name', '') == disp), None)
+                    comp = next(
+                        (
+                            cm
+                            for cm in getattr(cont, "components", [])
+                            if getattr(cm, "name", "") == disp
+                        ),
+                        None,
+                    )
                     if comp is not None:
-                        tags = _norm_tags(getattr(comp, 'tags', []))
+                        tags = _norm_tags(getattr(comp, "tags", []))
 
         # Filter out built-in tags that Structurizr assigns by type; keep only custom ones
         if tags:
-            custom = [t for t in tags if t not in ('Element', 'Person', 'Software System', 'Container', 'Component')]
+            custom = [
+                t
+                for t in tags
+                if t not in ("Element", "Person", "Software System", "Container", "Component")
+            ]
             if custom:
                 inject_tags_for(var, custom)
 
-    return '\n'.join(lines)
+    return "\n".join(lines)
+
 
 def _fix_view_includes(dsl: str) -> str:
     """Post-process the views section to ensure only valid include targets per view type.
@@ -808,13 +882,16 @@ def _fix_view_includes(dsl: str) -> str:
     import re
 
     # Build an index of declarations: var -> {type, parentSystem, parentContainer}
-    model_start = dsl.find('\n  model {')
-    views_start = dsl.find('\n  views {')
+    model_start = dsl.find("\n  model {")
+    views_start = dsl.find("\n  views {")
     if model_start == -1 or views_start == -1:
         return dsl
     model_block = dsl[model_start:views_start]
 
-    decl_re = re.compile(r'^(\s*)([A-Za-z0-9_]+)\s*=\s*(SoftwareSystem|Container|Component|Person)\s+"([^"\\]+)"', re.MULTILINE)
+    decl_re = re.compile(
+        r'^(\s*)([A-Za-z0-9_]+)\s*=\s*(SoftwareSystem|Container|Component|Person)\s+"([^"\\]+)"',
+        re.MULTILINE,
+    )
     var_info: dict[str, dict[str, str | None]] = {}
     stack: list[tuple[str, str]] = []  # (var, type)
     # Simple brace-aware scan
@@ -828,25 +905,25 @@ def _fix_view_includes(dsl: str) -> str:
             parent_container = None
             # Determine parents from stack
             for pvar, ptyp in reversed(stack):
-                if parent_system is None and ptyp == 'SoftwareSystem':
+                if parent_system is None and ptyp == "SoftwareSystem":
                     parent_system = pvar
-                if parent_container is None and ptyp == 'Container':
+                if parent_container is None and ptyp == "Container":
                     parent_container = pvar
                 if parent_system and parent_container:
                     break
             var_info[var] = {
-                'type': typ,
-                'parentSystem': parent_system,
-                'parentContainer': parent_container,
-                'displayName': disp,
+                "type": typ,
+                "parentSystem": parent_system,
+                "parentContainer": parent_container,
+                "displayName": disp,
             }
             # Push current declaration if block opens
-            if '{' in line and '}' not in line:
+            if "{" in line and "}" not in line:
                 stack.append((var, typ))
             continue
         # Track braces for exiting blocks
-        open_count = line.count('{')
-        close_count = line.count('}')
+        open_count = line.count("{")
+        close_count = line.count("}")
         for _ in range(open_count - close_count):
             # Unknown block opening, keep stack unchanged (handled on declarations)
             pass
@@ -857,6 +934,7 @@ def _fix_view_includes(dsl: str) -> str:
     # Build relationship index from model block: list of (src, dst)
     rels: list[tuple[str, str]] = []
     import re as _re
+
     for line in model_block.splitlines():
         # match: src -> dst "..."
         mrel = _re.search(r'^\s*([A-Za-z0-9_]+)\s*->\s*([A-Za-z0-9_]+)\s*"', line)
@@ -871,11 +949,11 @@ def _fix_view_includes(dsl: str) -> str:
     current_subject: str | None = None
     includes_seen_in_view: set[str] = set()
 
-    view_header_re = re.compile(r'^\s*(systemContext|container|component)\s+([A-Za-z0-9_]+)\s*\{')
+    view_header_re = re.compile(r"^\s*(systemContext|container|component)\s+([A-Za-z0-9_]+)\s*\{")
     # systemLandscape views (no subject)
-    landscape_header_re = re.compile(r'^\s*(systemLandscape)\s*\{')
+    landscape_header_re = re.compile(r"^\s*(systemLandscape)\s*\{")
     # Match include lines, supporting wildcard '*' as well as variable names
-    include_re = re.compile(r'^(\s*)include\s+(\*|[A-Za-z0-9_]+)\s*$')
+    include_re = re.compile(r"^(\s*)include\s+(\*|[A-Za-z0-9_]+)\s*$")
     # Relationship filters may be stashed as sentinel comments; detect generic excludes
     # rf_exclude_re intentionally unused; left as reference for potential future parsing
 
@@ -883,7 +961,7 @@ def _fix_view_includes(dsl: str) -> str:
     injected_name_filters_in_view = False
     saw_wildcard_include_in_view = False
     for line in lines:
-        if line.strip() == 'views {':
+        if line.strip() == "views {":
             in_views = True
             out_lines.append(line)
             continue
@@ -899,18 +977,18 @@ def _fix_view_includes(dsl: str) -> str:
             current_subject = mhead.group(2)
             # Normalize header subject to correct element type
             subj = current_subject
-            s_info = var_info.get(subj or '')
+            s_info = var_info.get(subj or "")
             if s_info:
-                stype = s_info['type']  # type: ignore[assignment]
-                ps = s_info.get('parentSystem')  # type: ignore[assignment]
-                pc = s_info.get('parentContainer')  # type: ignore[assignment]
-                if current_view_type in ('systemContext', 'container'):
+                stype = s_info["type"]  # type: ignore[assignment]
+                ps = s_info.get("parentSystem")  # type: ignore[assignment]
+                pc = s_info.get("parentContainer")  # type: ignore[assignment]
+                if current_view_type in ("systemContext", "container"):
                     # Expect a SoftwareSystem
-                    if stype in ('Container', 'Component') and ps:
+                    if stype in ("Container", "Component") and ps:
                         subj = str(ps)
-                elif current_view_type == 'component':
+                elif current_view_type == "component":
                     # Expect a Container
-                    if stype == 'Component' and pc:
+                    if stype == "Component" and pc:
                         subj = str(pc)
             includes_seen_in_view = set()
             saw_wildcard_include_in_view = False
@@ -932,20 +1010,24 @@ def _fix_view_includes(dsl: str) -> str:
             continue
 
         # Before closing a view, inject relationship filters (non-landscape only)
-        if in_views and line.strip() == '}':
+        if in_views and line.strip() == "}":
             if current_view_type is not None:
                 # For systemLandscape: do nothing here (no blanket excludes or manual rel includes)
                 # For other views without wildcard and no name filters: curate edges to avoid noise
-                if current_view_type != 'systemLandscape':
+                if current_view_type != "systemLandscape":
                     if not saw_wildcard_include_in_view and not injected_name_filters_in_view:
                         if not injected_exclude_in_view:
-                            out_lines.append('      exclude *->*')
+                            out_lines.append("      exclude *->*")
                         allowed = sorted(
-                            [(s, d) for (s, d) in rels if s in includes_seen_in_view and d in includes_seen_in_view],
-                            key=lambda t: (t[0], t[1])
+                            [
+                                (s, d)
+                                for (s, d) in rels
+                                if s in includes_seen_in_view and d in includes_seen_in_view
+                            ],
+                            key=lambda t: (t[0], t[1]),
                         )
                         for s, d in allowed:
-                            out_lines.append(f'      include {s}->{d}')
+                            out_lines.append(f"      include {s}->{d}")
             current_view_type = None
             current_subject = None
             includes_seen_in_view = set()
@@ -956,9 +1038,9 @@ def _fix_view_includes(dsl: str) -> str:
             continue
 
         # For landscape views, don't inject blanket excludes; let Structurizr render system-level relationships.
-        if current_view_type == 'systemLandscape' and 'autoLayout' in line:
+        if current_view_type == "systemLandscape" and "autoLayout" in line:
             lookback = out_lines[-5:]
-            if any('//__NAME_FILTERS__' in lb for lb in lookback):
+            if any("//__NAME_FILTERS__" in lb for lb in lookback):
                 injected_name_filters_in_view = True
             out_lines.append(line)
             continue
@@ -967,54 +1049,65 @@ def _fix_view_includes(dsl: str) -> str:
         minc = include_re.match(line)
         if minc and current_view_type is not None:
             indent, var = minc.group(1), minc.group(2)
-            if var == '*':
+            if var == "*":
                 out_lines.append(line)
                 saw_wildcard_include_in_view = True
                 continue
             info = var_info.get(var)
             new_var = var
             if info:
-                vtype = info['type']  # type: ignore[assignment]
-                parent_sys = info['parentSystem']  # type: ignore[assignment]
-                parent_cont = info['parentContainer']  # type: ignore[assignment]
-                if current_view_type == 'systemContext':
-                    if vtype in ('Container', 'Component') and parent_sys:
+                vtype = info["type"]  # type: ignore[assignment]
+                parent_sys = info["parentSystem"]  # type: ignore[assignment]
+                parent_cont = info["parentContainer"]  # type: ignore[assignment]
+                if current_view_type == "systemContext":
+                    if vtype in ("Container", "Component") and parent_sys:
                         new_var = parent_sys
-                elif current_view_type == 'container':
-                    if vtype == 'Component' and parent_sys:
+                elif current_view_type == "container":
+                    if vtype == "Component" and parent_sys:
                         new_var = parent_sys
-                    elif vtype == 'Container':
+                    elif vtype == "Container":
                         # Keep if same subject system, else map to parent system
-                        subj_info = var_info.get(current_subject or '')
-                        subj_sys = current_subject if (subj_info and subj_info.get('type') == 'SoftwareSystem') else (subj_info.get('parentSystem') if subj_info else None)
+                        subj_info = var_info.get(current_subject or "")
+                        subj_sys = (
+                            current_subject
+                            if (subj_info and subj_info.get("type") == "SoftwareSystem")
+                            else (subj_info.get("parentSystem") if subj_info else None)
+                        )
                         if parent_sys and subj_sys and parent_sys != subj_sys:
                             new_var = parent_sys
-                elif current_view_type == 'component':
-                    if vtype == 'Component' and parent_cont and (current_subject and parent_cont != current_subject):
+                elif current_view_type == "component":
+                    if (
+                        vtype == "Component"
+                        and parent_cont
+                        and (current_subject and parent_cont != current_subject)
+                    ):
                         new_var = parent_cont
             # Deduplicate includes within the same view
             if new_var in includes_seen_in_view:
                 continue
             includes_seen_in_view.add(new_var)
-            out_lines.append(f'{indent}include {new_var}')
+            out_lines.append(f"{indent}include {new_var}")
             continue
 
         # For non-landscape views, before autoLayout, ensure wildcard include
-        if current_view_type in ('systemContext', 'container', 'component') and 'autoLayout' in line:
+        if (
+            current_view_type in ("systemContext", "container", "component")
+            and "autoLayout" in line
+        ):
             if not saw_wildcard_include_in_view:
-                out_lines.append('      include *')
+                out_lines.append("      include *")
                 saw_wildcard_include_in_view = True
             # If earlier pass injected name-based filters, mark flag to suppress generic excludes
             # Detection: look back a few lines for sentinel
             lookback = out_lines[-5:]
-            if any('//__NAME_FILTERS__' in lb for lb in lookback):
+            if any("//__NAME_FILTERS__" in lb for lb in lookback):
                 injected_name_filters_in_view = True
             out_lines.append(line)
             continue
 
         out_lines.append(line)
 
-    return '\n'.join(out_lines)
+    return "\n".join(out_lines)
 
 
 def _apply_name_filters(dsl: str, model: SystemLandscape) -> str:
@@ -1025,28 +1118,36 @@ def _apply_name_filters(dsl: str, model: SystemLandscape) -> str:
     in _fix_view_includes by setting a sentinel flag comment.
     """
     # Fast path: if no such filters were declared anywhere, skip
-    from architecture_diagrams.orchestrator.specs import IncludeRelByName, ExcludeRelByName  # local import to avoid cycles during tooling
+    from architecture_diagrams.orchestrator.specs import (
+        ExcludeRelByName,
+        IncludeRelByName,
+    )  # local import to avoid cycles during tooling
+
     # Build view lists for filter detection
-    all_views = list(getattr(model, 'views', []))
+    all_views = list(getattr(model, "views", []))
     non_smart_views = [v for v in all_views if not isinstance(v, SmartSystemLandscapeView)]
     smart_landscapes = [v for v in all_views if isinstance(v, SmartSystemLandscapeView)]
     has_filters_any = (
-        any(getattr(v, '_name_relationship_filters', None) for v in non_smart_views) or
-        any(getattr(v, '_element_excludes_names', None) for v in non_smart_views) or
-        any(getattr(v, '_name_relationship_filters', None) for v in smart_landscapes) or
-        any(getattr(v, '_element_excludes_names', None) for v in smart_landscapes)
+        any(getattr(v, "_name_relationship_filters", None) for v in non_smart_views)
+        or any(getattr(v, "_element_excludes_names", None) for v in non_smart_views)
+        or any(getattr(v, "_name_relationship_filters", None) for v in smart_landscapes)
+        or any(getattr(v, "_element_excludes_names", None) for v in smart_landscapes)
     )
     if not has_filters_any:
         return dsl
 
     # Build declaration index: var -> {displayName, type, parentSystem, parentContainer}
     import re
-    model_start = dsl.find('\n  model {')
-    views_start = dsl.find('\n  views {')
+
+    model_start = dsl.find("\n  model {")
+    views_start = dsl.find("\n  views {")
     if model_start == -1 or views_start == -1:
         return dsl
     model_block = dsl[model_start:views_start]
-    decl_re = re.compile(r'^(\s*)([A-Za-z0-9_]+)\s*=\s*(SoftwareSystem|Container|Component|Person)\s+"([^"\\]+)"', re.MULTILINE)
+    decl_re = re.compile(
+        r'^(\s*)([A-Za-z0-9_]+)\s*=\s*(SoftwareSystem|Container|Component|Person)\s+"([^"\\]+)"',
+        re.MULTILINE,
+    )
     var_info: dict[str, dict[str, str | None]] = {}
     stack: list[tuple[str, str]] = []
     for line in model_block.splitlines():
@@ -1058,23 +1159,23 @@ def _apply_name_filters(dsl: str, model: SystemLandscape) -> str:
             parent_system = None
             parent_container = None
             for pvar, ptyp in reversed(stack):
-                if parent_system is None and ptyp == 'SoftwareSystem':
+                if parent_system is None and ptyp == "SoftwareSystem":
                     parent_system = pvar
-                if parent_container is None and ptyp == 'Container':
+                if parent_container is None and ptyp == "Container":
                     parent_container = pvar
                 if parent_system and parent_container:
                     break
             var_info[var] = {
-                'type': typ,
-                'parentSystem': parent_system,
-                'parentContainer': parent_container,
-                'displayName': disp,
+                "type": typ,
+                "parentSystem": parent_system,
+                "parentContainer": parent_container,
+                "displayName": disp,
             }
-            if '{' in line and '}' not in line:
+            if "{" in line and "}" not in line:
                 stack.append((var, typ))
             continue
         # Track closing braces
-        if '}' in line and stack:
+        if "}" in line and stack:
             stack.pop()
 
     # Helper to map display name (optionally System/Container) to variable
@@ -1082,31 +1183,31 @@ def _apply_name_filters(dsl: str, model: SystemLandscape) -> str:
         def _norm(s: Optional[str]) -> Optional[str]:
             if s is None:
                 return None
-            return s.strip().lower().replace('_', '-').replace(' ', '-')
+            return s.strip().lower().replace("_", "-").replace(" ", "-")
 
         if not name:
-            return '*'
+            return "*"
         # System/Container disambiguation with normalization
-        if '/' in name:
-            sys_name, inner_name = name.split('/', 1)
+        if "/" in name:
+            sys_name, inner_name = name.split("/", 1)
             n_sys, n_inner = _norm(sys_name), _norm(inner_name)
             # Find matching container by display name under matching system
             for v, info in var_info.items():
-                if _norm(info.get('displayName')) == n_inner and info.get('parentSystem'):
-                    ps = info.get('parentSystem')
-                    if _norm(var_info.get(str(ps), {}).get('displayName')) == n_sys:
+                if _norm(info.get("displayName")) == n_inner and info.get("parentSystem"):
+                    ps = info.get("parentSystem")
+                    if _norm(var_info.get(str(ps), {}).get("displayName")) == n_sys:
                         return v
             # Not found
             return None
 
         # Single-name resolution by display name (normalized)
-        preferred = ['SoftwareSystem', 'Container', 'Component', 'Person']
+        preferred = ["SoftwareSystem", "Container", "Component", "Person"]
         n_name = _norm(name)
         candidates: list[tuple[int, str]] = []
         for v, info in var_info.items():
-            if _norm(info.get('displayName')) == n_name:
+            if _norm(info.get("displayName")) == n_name:
                 try:
-                    rank = preferred.index(str(info.get('type')))
+                    rank = preferred.index(str(info.get("type")))
                 except ValueError:
                     rank = len(preferred)
                 candidates.append((rank, v))
@@ -1121,19 +1222,26 @@ def _apply_name_filters(dsl: str, model: SystemLandscape) -> str:
     out: list[str] = []
     in_views = False
     # Maintain separate indices per kind to align with view ordering in DSL
-    kind_indices: dict[str, int] = { 'systemContext': -1, 'container': -1, 'component': -1, 'systemLandscape': -1 }
+    kind_indices: dict[str, int] = {
+        "systemContext": -1,
+        "container": -1,
+        "component": -1,
+        "systemLandscape": -1,
+    }
     current_view_has_filters: Optional[list[object]] = None
     current_view_element_excludes: Optional[list[str]] = None
-    header_re = re.compile(r'^(\s*)(systemContext|container|component)\s+([A-Za-z0-9_]+)\s*\{')
-    landscape_header_re = re.compile(r'^(\s*)systemLandscape\s*\{')
+    header_re = re.compile(r"^(\s*)(systemContext|container|component)\s+([A-Za-z0-9_]+)\s*\{")
+    landscape_header_re = re.compile(r"^(\s*)systemLandscape\s*\{")
     # Order of landscape views in DSL: non-smart first, then smart landscapes
     try:
         from architecture_diagrams.c4 import SystemLandscapeView as _LSV
     except Exception:
         _LSV = None  # type: ignore[assignment]
-    landscapes_in_dsl_order = [v for v in non_smart_views if (_LSV and isinstance(v, _LSV))] + smart_landscapes
+    landscapes_in_dsl_order = [
+        v for v in non_smart_views if (_LSV and isinstance(v, _LSV))
+    ] + smart_landscapes
     for line in lines:
-        if line.strip() == 'views {':
+        if line.strip() == "views {":
             in_views = True
             out.append(line)
             continue
@@ -1146,21 +1254,28 @@ def _apply_name_filters(dsl: str, model: SystemLandscape) -> str:
             # Advance index for this kind and select the matching view of same kind
             kind_indices[kind] += 1
             idx = kind_indices[kind]
+
             # Filter non-smart views by kind in definition order
-            def _is_kind(v: object) -> bool:
-                from architecture_diagrams.c4.model import SystemContextView as MSystemContextView, ContainerView as MContainerView, ComponentView as MComponentView
-                if kind == 'systemContext':
+            def _is_kind(v: object, kind: str = kind) -> bool:
+                from architecture_diagrams.c4.model import (
+                    ComponentView as MComponentView,
+                    ContainerView as MContainerView,
+                    SystemContextView as MSystemContextView,
+                )
+
+                if kind == "systemContext":
                     return isinstance(v, MSystemContextView)
-                if kind == 'container':
+                if kind == "container":
                     return isinstance(v, MContainerView)
-                if kind == 'component':
+                if kind == "component":
                     return isinstance(v, MComponentView)
                 return False
+
             views_of_kind = [v for v in non_smart_views if _is_kind(v)]
             if 0 <= idx < len(views_of_kind):
                 v = views_of_kind[idx]
-                current_view_has_filters = getattr(v, '_name_relationship_filters', None)
-                current_view_element_excludes = getattr(v, '_element_excludes_names', None)
+                current_view_has_filters = getattr(v, "_name_relationship_filters", None)
+                current_view_element_excludes = getattr(v, "_element_excludes_names", None)
             else:
                 current_view_has_filters = None
                 current_view_element_excludes = None
@@ -1169,58 +1284,66 @@ def _apply_name_filters(dsl: str, model: SystemLandscape) -> str:
         mland = landscape_header_re.match(line)
         if mland:
             # systemLandscape header (no subject)
-            kind_indices['systemLandscape'] += 1
-            idx = kind_indices['systemLandscape']
+            kind_indices["systemLandscape"] += 1
+            idx = kind_indices["systemLandscape"]
             v = landscapes_in_dsl_order[idx] if 0 <= idx < len(landscapes_in_dsl_order) else None
             if v is not None:
-                current_view_has_filters = getattr(v, '_name_relationship_filters', None)
-                current_view_element_excludes = getattr(v, '_element_excludes_names', None)
+                current_view_has_filters = getattr(v, "_name_relationship_filters", None)
+                current_view_element_excludes = getattr(v, "_element_excludes_names", None)
             else:
                 current_view_has_filters = None
                 current_view_element_excludes = None
             out.append(line)
             continue
-        if in_views and 'autoLayout' in line and (current_view_has_filters or current_view_element_excludes):
+        if (
+            in_views
+            and "autoLayout" in line
+            and (current_view_has_filters or current_view_element_excludes)
+        ):
             # insert sentinel and filters before autoLayout
-            out.append('      //__NAME_FILTERS__')
+            out.append("      //__NAME_FILTERS__")
             # Element-level excludes (exclude <element>)
             if current_view_element_excludes:
                 for nm in current_view_element_excludes:
                     v = resolve_name(nm)
-                    if v and v != '*':
+                    if v and v != "*":
                         out.append(f"      exclude {v}")
             # Relationship name-based filters
             if current_view_has_filters:
                 for nf in current_view_has_filters:
                     if isinstance(nf, IncludeRelByName):
-                        from_var = resolve_name(getattr(nf, 'from_name', None))
-                        to_var = resolve_name(getattr(nf, 'to_name', None))
+                        from_var = resolve_name(getattr(nf, "from_name", None))
+                        to_var = resolve_name(getattr(nf, "to_name", None))
                         # Only emit if both sides resolvable (allow wildcard '*')
-                        if (from_var == '*' or from_var is not None) and (to_var == '*' or to_var is not None):
+                        if (from_var == "*" or from_var is not None) and (
+                            to_var == "*" or to_var is not None
+                        ):
                             out.append(f"      include {from_var}->{to_var}")
                     elif isinstance(nf, ExcludeRelByName):
-                        from_var = resolve_name(getattr(nf, 'from_name', None))
-                        to_var = resolve_name(getattr(nf, 'to_name', None))
-                        if (from_var == '*' or from_var is not None) and (to_var == '*' or to_var is not None):
+                        from_var = resolve_name(getattr(nf, "from_name", None))
+                        to_var = resolve_name(getattr(nf, "to_name", None))
+                        if (from_var == "*" or from_var is not None) and (
+                            to_var == "*" or to_var is not None
+                        ):
                             out.append(f"      exclude {from_var}->{to_var}")
-                        for bi in getattr(nf, 'but_include_names', ()):
+                        for bi in getattr(nf, "but_include_names", ()):
                             bi_var = resolve_name(bi)
                             if bi_var is None:
                                 continue
-                            if getattr(nf, 'from_name', None) and from_var not in (None, '*'):
+                            if getattr(nf, "from_name", None) and from_var not in (None, "*"):
                                 out.append(f"      include {from_var}->{bi_var}")
-                            elif to_var not in (None, '*'):
+                            elif to_var not in (None, "*"):
                                 out.append(f"      include {bi_var}->{to_var}")
             out.append(line)
             continue
         # Reset state on view closure to avoid leaks into subsequent views
-        if in_views and line.strip() == '}':
+        if in_views and line.strip() == "}":
             current_view_has_filters = None
             current_view_element_excludes = None
             out.append(line)
             continue
         out.append(line)
-    return '\n'.join(out)
+    return "\n".join(out)
 
 
 def _inject_view_header_comments(dsl: str, model: SystemLandscape) -> str:
@@ -1230,45 +1353,63 @@ def _inject_view_header_comments(dsl: str, model: SystemLandscape) -> str:
     only shows a 'description' field by default and not the view's name or key.
     """
     import re
+
     lines = dsl.splitlines()
     out: list[str] = []
     in_views = False
     # Track indices per kind to map to the model's view objects in the same order as emission
-    kind_indices: dict[str, int] = { 'systemContext': -1, 'container': -1, 'component': -1, 'systemLandscape': -1 }
-    header_re = re.compile(r'^(\s*)(systemContext|container|component)\s+([A-Za-z0-9_]+)\s*\{')
-    landscape_header_re = re.compile(r'^(\s*)systemLandscape\s*\{')
+    kind_indices: dict[str, int] = {
+        "systemContext": -1,
+        "container": -1,
+        "component": -1,
+        "systemLandscape": -1,
+    }
+    header_re = re.compile(r"^(\s*)(systemContext|container|component)\s+([A-Za-z0-9_]+)\s*\{")
+    landscape_header_re = re.compile(r"^(\s*)systemLandscape\s*\{")
     # Partition model views by kind and smartness to replicate emission order
-    all_views = list(getattr(model, 'views', []))
+    all_views = list(getattr(model, "views", []))
     try:
-        from architecture_diagrams.c4 import SystemLandscapeView as _LSV, SmartSystemLandscapeView as _SLSV
+        from architecture_diagrams.c4 import (
+            SmartSystemLandscapeView as _SLSV,
+            SystemLandscapeView as _LSV,
+        )
     except Exception:
         _LSV = None  # type: ignore[assignment]
         _SLSV = None  # type: ignore[assignment]
     non_smart_views = [v for v in all_views if not (_SLSV and isinstance(v, _SLSV))]
     smart_landscapes = [v for v in all_views if (_SLSV and isinstance(v, _SLSV))]
-    landscapes_in_dsl_order = [v for v in non_smart_views if (_LSV and isinstance(v, _LSV))] + smart_landscapes
+    landscapes_in_dsl_order = [
+        v for v in non_smart_views if (_LSV and isinstance(v, _LSV))
+    ] + smart_landscapes
 
     # Helper to find the corresponding model view for a header
     def _next_view(kind: str):
         kind_indices[kind] += 1
         idx = kind_indices[kind]
-        if kind == 'systemLandscape':
+        if kind == "systemLandscape":
             return landscapes_in_dsl_order[idx] if 0 <= idx < len(landscapes_in_dsl_order) else None
+
         # Filter non-smart views by kind
         def _is_kind(v: object) -> bool:
-            from architecture_diagrams.c4.model import SystemContextView as MSystemContextView, ContainerView as MContainerView, ComponentView as MComponentView
-            if kind == 'systemContext':
+            from architecture_diagrams.c4.model import (
+                ComponentView as MComponentView,
+                ContainerView as MContainerView,
+                SystemContextView as MSystemContextView,
+            )
+
+            if kind == "systemContext":
                 return isinstance(v, MSystemContextView)
-            if kind == 'container':
+            if kind == "container":
                 return isinstance(v, MContainerView)
-            if kind == 'component':
+            if kind == "component":
                 return isinstance(v, MComponentView)
             return False
+
         views_of_kind = [v for v in non_smart_views if _is_kind(v)]
         return views_of_kind[idx] if 0 <= idx < len(views_of_kind) else None
 
     for line in lines:
-        if line.strip() == 'views {':
+        if line.strip() == "views {":
             in_views = True
             out.append(line)
             continue
@@ -1281,29 +1422,29 @@ def _inject_view_header_comments(dsl: str, model: SystemLandscape) -> str:
             out.append(line)
             v = _next_view(kind)
             if v is not None:
-                k = getattr(v, 'key', '')
-                nm = getattr(v, 'name', '')
+                k = getattr(v, "key", "")
+                nm = getattr(v, "name", "")
                 try:
-                    proj = getattr(v, 'project', '')
+                    proj = getattr(v, "project", "")
                 except Exception:
-                    proj = ''
-                meta = f'// View: key="{k}" name="{nm}"' + (f' project="{proj}"' if proj else '')
-                out.append(f'{leading}  {meta}')
+                    proj = ""
+                meta = f'// View: key="{k}" name="{nm}"' + (f' project="{proj}"' if proj else "")
+                out.append(f"{leading}  {meta}")
             continue
         mland = landscape_header_re.match(line)
         if mland:
             leading = mland.group(1)
             out.append(line)
-            v = _next_view('systemLandscape')
+            v = _next_view("systemLandscape")
             if v is not None:
-                k = getattr(v, 'key', '')
-                nm = getattr(v, 'name', '')
+                k = getattr(v, "key", "")
+                nm = getattr(v, "name", "")
                 try:
-                    proj = getattr(v, 'project', '')
+                    proj = getattr(v, "project", "")
                 except Exception:
-                    proj = ''
-                meta = f'// View: key="{k}" name="{nm}"' + (f' project="{proj}"' if proj else '')
-                out.append(f'{leading}  {meta}')
+                    proj = ""
+                meta = f'// View: key="{k}" name="{nm}"' + (f' project="{proj}"' if proj else "")
+                out.append(f"{leading}  {meta}")
             continue
         out.append(line)
-    return '\n'.join(out)
+    return "\n".join(out)

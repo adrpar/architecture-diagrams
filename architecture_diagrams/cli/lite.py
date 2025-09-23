@@ -1,14 +1,13 @@
-import click
-import docker
-import requests
 import os
 import time
 import webbrowser
-
 from typing import Any, Optional
 
-from architecture_diagrams.orchestrator.build import build_workspace_dsl
+import click
+import docker
+import requests
 
+from architecture_diagrams.orchestrator.build import build_workspace_dsl
 
 _STRUCTURIZR_LITE_IMAGE_NAME = "structurizr/lite"
 _CONTAINER_NAME = "structurizr-lite-architecture-diagrams"
@@ -49,7 +48,14 @@ def lite() -> None:
     default=None,
     help="Comma-separated module keys (e.g., care-journeys, assess) derived from view subjects (optional)",
 )
-def start(path: click.Path, filename: str, port: int, views: Optional[str], tags_: Optional[str], modules_: Optional[str]) -> None:
+def start(
+    path: click.Path,
+    filename: str,
+    port: int,
+    views: Optional[str],
+    tags_: Optional[str],
+    modules_: Optional[str],
+) -> None:
     """Starts structurizr lite. If --views/--tags are provided, generate DSL on the fly."""
     absolute_path = os.path.abspath(str(path))
     if views or tags_ or modules_:
@@ -60,7 +66,9 @@ def start(path: click.Path, filename: str, port: int, views: Optional[str], tags
         # So we materialize the generated DSL into a project-local directory that Docker can mount.
         generated_dir = os.path.join(absolute_path, ".structurizr")
         os.makedirs(generated_dir, exist_ok=True)
-        dsl = build_workspace_dsl(select_names=names, select_tags=tag_list, select_modules=module_list)
+        dsl = build_workspace_dsl(
+            select_names=names, select_tags=tag_list, select_modules=module_list
+        )
         out_file = os.path.join(generated_dir, filename)
         with open(out_file, "w") as fh:
             fh.write(dsl)

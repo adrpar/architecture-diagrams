@@ -1,8 +1,9 @@
 from __future__ import annotations
+
 from typing import List
 
 from architecture_diagrams.c4.model import ViewType
-from architecture_diagrams.orchestrator.specs import ViewSpec, ExcludeRelByName
+from architecture_diagrams.orchestrator.specs import ExcludeRelByName, ViewSpec
 
 
 def get_views() -> List[ViewSpec]:
@@ -24,11 +25,15 @@ def get_views() -> List[ViewSpec]:
             ],
             # Demonstrate exclude with but-include cross references
             filters=[
-                ExcludeRelByName(from_name="*", to_name="*", but_include_names=[
-                    "Payments/Payments API",
-                    "Email Provider/SMTP",
-                    "SMS Gateway/SMPP",
-                ])
+                ExcludeRelByName(
+                    from_name="*",
+                    to_name="*",
+                    but_include_names=[
+                        "Payments/Payments API",
+                        "Email Provider/SMTP",
+                        "SMS Gateway/SMPP",
+                    ],
+                )
             ],
         ),
     ]

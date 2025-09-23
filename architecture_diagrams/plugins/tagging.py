@@ -57,6 +57,7 @@ def _auto_broker_queue(model: object) -> None:
     - If container.technology contains 'kafka' -> add 'message-broker'
     - If name or technology contains 'redis stream' or 'queue' -> add 'message-broker' and 'queue'
     """
+
     def _norm(s: Optional[str]) -> str:
         return (s or "").lower()
 
@@ -68,7 +69,12 @@ def _auto_broker_queue(model: object) -> None:
             tags = set(getattr(c, "tags", set()) or set())
             if "kafka" in tech or "kafka" in name:
                 tags.add("message-broker")
-            if "redis stream" in tech or "redis streams" in tech or "queue" in name or "queue" in tech:
+            if (
+                "redis stream" in tech
+                or "redis streams" in tech
+                or "queue" in name
+                or "queue" in tech
+            ):
                 tags.add("message-broker")
                 tags.add("queue")
             try:

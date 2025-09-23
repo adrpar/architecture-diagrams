@@ -6,6 +6,7 @@ from typing import Callable, Dict, Optional
 # Exporter is a callable that takes a model and returns a string representation
 Exporter = Callable[[object], str]
 
+
 @dataclass(frozen=True)
 class PluginRegistry:
     exporters: Dict[str, Exporter]
@@ -13,6 +14,7 @@ class PluginRegistry:
     @classmethod
     def default(cls) -> "PluginRegistry":
         return cls(exporters={})
+
 
 _registry: PluginRegistry = PluginRegistry.default()
 

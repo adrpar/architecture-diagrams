@@ -3,22 +3,27 @@ from __future__ import annotations
 import hashlib
 import json
 import sys
+import tomllib
 from pathlib import Path
 from typing import Any, Dict, Iterable, Optional
 
-import tomllib
-
 from architecture_diagrams.adapter.pystructurizr_export import dump_dsl
-from architecture_diagrams.plugins import get_exporter  # plugin registry
-from architecture_diagrams.plugins import exporters as _ensure_exporters  # noqa: F401 ensure registration
-from architecture_diagrams.plugins import tagging as _ensure_tagging  # noqa: F401
-from architecture_diagrams.plugins import view_generators as _ensure_view_generators  # noqa: F401
-from architecture_diagrams.plugins.tagging import get_strategy as get_tagging_strategy
-from architecture_diagrams.plugins.view_generators import get_view_generator
 from architecture_diagrams.orchestrator.compose import compose
-from architecture_diagrams.orchestrator.loader import discover_model_builders, discover_view_specs, discover_overlays
+from architecture_diagrams.orchestrator.loader import (
+    discover_model_builders,
+    discover_overlays,
+    discover_view_specs,
+)
 from architecture_diagrams.orchestrator.select import select_views
 from architecture_diagrams.orchestrator.specs import ViewSpec
+from architecture_diagrams.plugins import (
+    exporters as _ensure_exporters,  # noqa: F401 ensure registration
+    get_exporter,  # plugin registry
+    tagging as _ensure_tagging,  # noqa: F401
+    view_generators as _ensure_view_generators,  # noqa: F401
+)  # noqa: F401 ensure registration
+from architecture_diagrams.plugins.tagging import get_strategy as get_tagging_strategy
+from architecture_diagrams.plugins.view_generators import get_view_generator
 
 
 def build_workspace_dsl(
@@ -278,7 +283,9 @@ def build_workspace(
     return exporter_fn(model)
 
 
-def _merge_view_inheritance(base_specs: list[ViewSpec], derived_specs: list[ViewSpec]) -> list[ViewSpec]:
+def _merge_view_inheritance(
+    base_specs: list[ViewSpec], derived_specs: list[ViewSpec]
+) -> list[ViewSpec]:
     """Return a merged list of views where derived views may extend base views by key.
 
     Rules:
@@ -297,7 +304,7 @@ def _merge_view_inheritance(base_specs: list[ViewSpec], derived_specs: list[View
     by_key: dict[str, ViewSpec] = {v.key: v for v in base_specs}
     merged: list[ViewSpec] = list(base_specs)
     for dv in derived_specs:
-        ek = getattr(dv, 'extends_key', None)
+        ek = getattr(dv, "extends_key", None)
         if not ek:
             merged.append(dv)
             continue
@@ -315,7 +322,7 @@ def _merge_view_inheritance(base_specs: list[ViewSpec], derived_specs: list[View
             tags=set(bv.tags) | set(dv.tags),
             includes=list(bv.includes) + list(dv.includes),
             excludes=list(bv.excludes) + list(dv.excludes),
-            filters=list(getattr(bv, 'filters', [])) + list(getattr(dv, 'filters', [])),
+            filters=list(getattr(bv, "filters", [])) + list(getattr(dv, "filters", [])),
             subject=dv.subject or bv.subject,
             smart=dv.smart or bv.smart,
         )
@@ -346,50 +353,79 @@ def _prune_model_to_views(model: Any) -> None:
     subject_ids: set[str] = set()
     for v in model.views:
         # Subject
-        subj = getattr(v, 'software_system', None) or getattr(v, 'container', None)
-        if subj is not None and hasattr(subj, 'id'):
+        subj = getattr(v, "software_system", None) or getattr(v, "container", None)
+        if subj is not None and hasattr(subj, "id"):
             subject_ids.add(subj.id)
         # Includes
-        for eid in getattr(v, 'include', set()):
+        for eid in getattr(v, "include", set()):
             keep_ids.add(eid)
         # Elements referenced by name-based filters (from/to/but-include)
-        name_filters = getattr(v, '_name_relationship_filters', [])
+        name_filters = getattr(v, "_name_relationship_filters", [])
         if name_filters:
+
             def _norm(s: Optional[str]) -> Optional[str]:
                 if s is None:
                     return None
-                return s.strip().lower().replace('_', '-').replace(' ', '-')
+                return s.strip().lower().replace("_", "-").replace(" ", "-")
 
             def _resolve_name_to_id(name: str | None) -> Optional[str]:
-                if not name or name == '*':
+                if not name or name == "*":
                     return None
                 # Support System/Container
-                if '/' in name:
-                    sys_name, inner = name.split('/', 1)
+                if "/" in name:
+                    sys_name, inner = name.split("/", 1)
                     # Find system by display name
-                    sys = next((s for s in model.software_systems.values() if _norm(getattr(s, 'name', None)) == _norm(sys_name)), None)
+                    sys = next(
+                        (
+                            s
+                            for s in model.software_systems.values()
+                            if _norm(getattr(s, "name", None)) == _norm(sys_name)
+                        ),
+                        None,
+                    )
                     if sys is None:
                         return None
-                    cont = next((c for c in getattr(sys, 'containers', []) if _norm(getattr(c, 'name', None)) == _norm(inner)), None)
-                    return getattr(cont, 'id', None)
+                    cont = next(
+                        (
+                            c
+                            for c in getattr(sys, "containers", [])
+                            if _norm(getattr(c, "name", None)) == _norm(inner)
+                        ),
+                        None,
+                    )
+                    return getattr(cont, "id", None)
                 # Try person by name
-                person = next((p for p in model.people.values() if _norm(getattr(p, 'name', None)) == _norm(name)), None)
+                person = next(
+                    (
+                        p
+                        for p in model.people.values()
+                        if _norm(getattr(p, "name", None)) == _norm(name)
+                    ),
+                    None,
+                )
                 if person is not None:
-                    return getattr(person, 'id', None)
+                    return getattr(person, "id", None)
                 # Try software system by name
-                sys = next((s for s in model.software_systems.values() if _norm(getattr(s, 'name', None)) == _norm(name)), None)
+                sys = next(
+                    (
+                        s
+                        for s in model.software_systems.values()
+                        if _norm(getattr(s, "name", None)) == _norm(name)
+                    ),
+                    None,
+                )
                 if sys is not None:
-                    return getattr(sys, 'id', None)
+                    return getattr(sys, "id", None)
                 return None
 
             for nf in name_filters:
-                from_id = _resolve_name_to_id(getattr(nf, 'from_name', None))
-                to_id = _resolve_name_to_id(getattr(nf, 'to_name', None))
+                from_id = _resolve_name_to_id(getattr(nf, "from_name", None))
+                to_id = _resolve_name_to_id(getattr(nf, "to_name", None))
                 if from_id:
                     keep_ids.add(from_id)
                 if to_id:
                     keep_ids.add(to_id)
-                for bi in getattr(nf, 'but_include_names', ()):
+                for bi in getattr(nf, "but_include_names", ()):
                     bi_id = _resolve_name_to_id(bi)
                     if bi_id:
                         keep_ids.add(bi_id)
@@ -397,13 +433,13 @@ def _prune_model_to_views(model: Any) -> None:
 
     # Also keep parents needed for correctness
     def add_parents(e):
-        p = getattr(e, 'parent', None)
-        while p is not None and hasattr(p, 'id'):
+        p = getattr(e, "parent", None)
+        while p is not None and hasattr(p, "id"):
             keep_ids.add(p.id)
-            p = getattr(p, 'parent', None)
+            p = getattr(p, "parent", None)
 
     for e in list(model.iter_elements()):
-        if hasattr(e, 'id') and e.id in keep_ids:
+        if hasattr(e, "id") and e.id in keep_ids:
             add_parents(e)
 
     # Prune software systems and nested containers/components
@@ -411,7 +447,10 @@ def _prune_model_to_views(model: Any) -> None:
     for sid, system in list(model.software_systems.items()):
         if system.id not in keep_ids:
             # Keep system if any nested container/component is kept
-            nested_kept = any(c.id in keep_ids or any(comp.id in keep_ids for comp in c.components) for c in system.containers)
+            nested_kept = any(
+                c.id in keep_ids or any(comp.id in keep_ids for comp in c.components)
+                for c in system.containers
+            )
             if not nested_kept and sid not in keep_ids:
                 systems_to_remove.append(sid)
         else:
@@ -428,7 +467,14 @@ def _prune_model_to_views(model: Any) -> None:
 
     # Prune people and relationships
     model.people = {pid: p for pid, p in model.people.items() if p.id in keep_ids}
-    model.relationships = [r for r in model.relationships if hasattr(r.source, 'id') and hasattr(r.destination, 'id') and r.source.id in keep_ids and r.destination.id in keep_ids]
+    model.relationships = [
+        r
+        for r in model.relationships
+        if hasattr(r.source, "id")
+        and hasattr(r.destination, "id")
+        and r.source.id in keep_ids
+        and r.destination.id in keep_ids
+    ]
 
 
 def _compute_cache_key(

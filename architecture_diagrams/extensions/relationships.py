@@ -33,10 +33,7 @@ class RelationshipFilter(Element):  # type: ignore[misc]
     def dump(self, dumper: Dumper) -> None:
         dumper.add(f"{self.type.value} {self.from_string}->{self.to_string}")
 
-        if (
-            self.but_include_elements
-            and self.type == RelationshipFilter.FilterType.EXCLUDE
-        ):
+        if self.but_include_elements and self.type == RelationshipFilter.FilterType.EXCLUDE:
             for element in self.but_include_elements:
                 if self.from_element:
                     dumper.add(f"include {self.from_string}->{element.instname}")

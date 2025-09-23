@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 from pathlib import Path
 
 from architecture_diagrams.orchestrator.build import build_workspace_dsl

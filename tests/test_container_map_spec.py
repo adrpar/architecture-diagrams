@@ -1,5 +1,6 @@
-from architecture_diagrams.c4 import SystemLandscape
 from typing import Mapping, Union, cast
+
+from architecture_diagrams.c4 import SystemLandscape
 
 
 def test_ensure_containers_from_map_creates_and_registers():
@@ -36,6 +37,7 @@ def test_ensure_containers_from_map_idempotent():
     sys = wm.add_software_system("sample", "Sample system")
     raw_spec: dict[str, dict[str, object]] = {"svc": {"desc": "Svc", "tech": None}}
     spec = cast(Mapping[str, Union[tuple[str, str | None], Mapping[str, object]]], raw_spec)
+
     def ensure_containers_from_map_local():
         created: dict[str, object] = {}
         for name, meta in spec.items():
