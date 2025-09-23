@@ -71,6 +71,9 @@ def build_workspace(
     cache_dir: Optional[Path] = None,
 ) -> str:
     root = Path(__file__).resolve().parents[2]
+    # Early validation: provided project_path must exist
+    if project_path is not None and not Path(project_path).exists():
+        raise FileNotFoundError(f"Project path not found: {project_path}")
     external_root: Optional[Path] = None
     extra_model_dirs: list[Path] = []
     extra_view_dirs: list[Path] = []
@@ -169,11 +172,14 @@ def build_workspace(
                 base_project = None
 
     # Compose base
+    builder_count = 0
     if base_project:
         base_builders = discover_model_builders(root, project=base_project)
+        builder_count += len(base_builders)
         model = compose(base_builders, name=workspace_name)
         # Then apply derived project's own builders on top (if any)
         derived_builders = discover_model_builders(root, project=project)
+        builder_count += len(derived_builders)
         for b in derived_builders:
             model = b(model)
     else:
@@ -181,6 +187,7 @@ def build_workspace(
             builders = discover_model_builders(root, extra_dirs=extra_model_dirs)
         else:
             builders = discover_model_builders(root, project=project)
+        builder_count += len(builders)
         model = compose(builders, name=workspace_name)
 
     # Apply overlays if any (internal or external)
@@ -213,7 +220,26 @@ def build_workspace(
         base_proj_specs = discover_view_specs(root, project=base_project)
         all_specs = _merge_view_inheritance(base_proj_specs, base_specs)
     else:
+        base_proj_specs = []
         all_specs = _merge_view_inheritance([], base_specs)
+
+    # Fail-fast: if no builders and no views discovered for the requested inputs, treat as not found
+    if builder_count == 0 and len(base_specs) + len(base_proj_specs) == 0:
+        details = []
+        if project:
+            details.append(f"project='{project}'")
+        if project_path:
+            details.append(f"project_path='{project_path}'")
+        if extra_model_dirs:
+            details.append("model_dirs=" + ",".join(str(d) for d in extra_model_dirs))
+        if extra_view_dirs:
+            details.append("view_dirs=" + ",".join(str(d) for d in extra_view_dirs))
+        hint = (
+            "Expected structure: projects/<project>/{models,views}/... or an external "
+            "path containing models/ and/or views/."
+        )
+        where = ("; ".join(details)) if details else "(no details)"
+        raise FileNotFoundError(f"No project found: {where}. {hint}")
     selected = select_views(
         all_specs,
         names=set(select_names or []),
