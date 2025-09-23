@@ -1,5 +1,4 @@
-from architecture_diagrams.c4 import SystemLandscape
-from architecture_diagrams.c4.model import ViewType
+from architecture_diagrams.c4 import SystemLandscape, ViewType
 from architecture_diagrams.orchestrator.specs import ViewSpec
 
 

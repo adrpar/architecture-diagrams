@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Callable, Dict, List, Optional, TypedDict
 
-from architecture_diagrams.c4.model import ViewType
+from architecture_diagrams.c4.views import ViewType
 from architecture_diagrams.orchestrator.specs import IncludeRelByName, ViewSpec
 
 # View generator signature: (model, config) -> list[ViewSpec]
