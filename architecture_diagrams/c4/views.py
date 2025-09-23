@@ -28,19 +28,9 @@ class ViewBase:
 
 @dataclass
 class SystemLandscapeView(ViewBase):
-    pass
-
-
-# TODO: Do we need this separate class?
-@dataclass
-class SmartSystemLandscapeView(SystemLandscapeView):
-    """System Landscape view that semantically requests wildcard include * plus explicit includes.
-
-    This allows the exporter to render via pystructurizr normally and then add a wildcard line
-    without brittle pattern matching across arbitrary views.
-    """
-
-    wildcard: bool = True
+    # If True, exporters should include all elements allowed by this view type by default,
+    # in addition to any explicit includes (Structurizr DSL maps this to 'include *').
+    include_all: bool = False
 
 
 @dataclass

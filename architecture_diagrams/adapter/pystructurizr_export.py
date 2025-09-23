@@ -21,7 +21,6 @@ from architecture_diagrams.c4 import SystemLandscape
 from architecture_diagrams.c4.views import (
     ComponentView,
     ContainerView,
-    SmartSystemLandscapeView,
     SystemContextView,
     SystemLandscapeView,
 )
@@ -132,8 +131,8 @@ def to_pystructurizr(model: SystemLandscape) -> Workspace:
     # (Legacy smart metadata support removed; smart views must be created explicitly.)
 
     # Standard (non-smart) views first, preserving declaration order
-    for view in [v for v in model.views if not isinstance(v, SmartSystemLandscapeView)]:
-        if isinstance(view, SystemLandscapeView):
+    for view in model.views:
+        if isinstance(view, SystemLandscapeView) and not getattr(view, "include_all", False):
             dview = ws.SystemLandscapeView(view.name, view.description or view.name)
         elif isinstance(view, SystemContextView):
             # Resolve a SoftwareSystem for the subject (map container/component to parent system)
@@ -163,7 +162,11 @@ def to_pystructurizr(model: SystemLandscape) -> Workspace:
         # so do NOT append again to avoid duplicates.
 
     # Smart system landscape views using SmartView (include * semantics handled by its dump)
-    for view in [v for v in model.views if isinstance(v, SmartSystemLandscapeView)]:
+    for view in [
+        v
+        for v in model.views
+        if isinstance(v, SystemLandscapeView) and getattr(v, "include_all", False)
+    ]:
         sv = SmartView(DView.Kind.SYSTEM_LANDSCAPE, None, view.name, view.description or view.name)
 
         # Deterministic ordering: slug sort
@@ -1125,8 +1128,16 @@ def _apply_name_filters(dsl: str, model: SystemLandscape) -> str:
 
     # Build view lists for filter detection
     all_views = list(getattr(model, "views", []))
-    non_smart_views = [v for v in all_views if not isinstance(v, SmartSystemLandscapeView)]
-    smart_landscapes = [v for v in all_views if isinstance(v, SmartSystemLandscapeView)]
+    non_smart_views = [
+        v
+        for v in all_views
+        if not (isinstance(v, SystemLandscapeView) and getattr(v, "include_all", False))
+    ]
+    smart_landscapes = [
+        v
+        for v in all_views
+        if isinstance(v, SystemLandscapeView) and getattr(v, "include_all", False)
+    ]
     has_filters_any = (
         any(getattr(v, "_name_relationship_filters", None) for v in non_smart_views)
         or any(getattr(v, "_element_excludes_names", None) for v in non_smart_views)
@@ -1233,12 +1244,8 @@ def _apply_name_filters(dsl: str, model: SystemLandscape) -> str:
     header_re = re.compile(r"^(\s*)(systemContext|container|component)\s+([A-Za-z0-9_]+)\s*\{")
     landscape_header_re = re.compile(r"^(\s*)systemLandscape\s*\{")
     # Order of landscape views in DSL: non-smart first, then smart landscapes
-    try:
-        from architecture_diagrams.c4 import SystemLandscapeView as _LSV
-    except Exception:
-        _LSV = None  # type: ignore[assignment]
     landscapes_in_dsl_order = [
-        v for v in non_smart_views if (_LSV and isinstance(v, _LSV))
+        v for v in non_smart_views if isinstance(v, SystemLandscapeView)
     ] + smart_landscapes
     for line in lines:
         if line.strip() == "views {":
@@ -1366,20 +1373,20 @@ def _inject_view_header_comments(dsl: str, model: SystemLandscape) -> str:
     }
     header_re = re.compile(r"^(\s*)(systemContext|container|component)\s+([A-Za-z0-9_]+)\s*\{")
     landscape_header_re = re.compile(r"^(\s*)systemLandscape\s*\{")
-    # Partition model views by kind and smartness to replicate emission order
+    # Partition model views by kind and smartness (include_all flag) to replicate emission order
     all_views = list(getattr(model, "views", []))
-    try:
-        from architecture_diagrams.c4 import (
-            SmartSystemLandscapeView as _SLSV,
-            SystemLandscapeView as _LSV,
-        )
-    except Exception:
-        _LSV = None  # type: ignore[assignment]
-        _SLSV = None  # type: ignore[assignment]
-    non_smart_views = [v for v in all_views if not (_SLSV and isinstance(v, _SLSV))]
-    smart_landscapes = [v for v in all_views if (_SLSV and isinstance(v, _SLSV))]
+    non_smart_views = [
+        v
+        for v in all_views
+        if not (isinstance(v, SystemLandscapeView) and getattr(v, "include_all", False))
+    ]
+    smart_landscapes = [
+        v
+        for v in all_views
+        if (isinstance(v, SystemLandscapeView) and getattr(v, "include_all", False))
+    ]
     landscapes_in_dsl_order = [
-        v for v in non_smart_views if (_LSV and isinstance(v, _LSV))
+        v for v in non_smart_views if isinstance(v, SystemLandscapeView)
     ] + smart_landscapes
 
     # Helper to find the corresponding model view for a header

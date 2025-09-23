@@ -64,25 +64,17 @@ class SoftwareSystem(ElementBase):
         technology: Optional[str] = None,
         tags: Optional[Iterable[str]] = None,
     ) -> "Container":
+        # Normalize tags once for both update and create paths
+        tag_set = self._normalize_tags(tags)
         existing = self._containers.get(name)
         if existing:
             if description and not existing.description:
                 existing.description = description
             if technology and not existing.technology:
                 existing.technology = technology
-            if tags:
-                # Treat a string as a single tag; otherwise assume iterable of strings
-                if isinstance(tags, str):
-                    existing.tags.update({tags})
-                else:
-                    existing.tags.update(tags)
+            if tag_set:
+                existing.tags.update(tag_set)
             return existing
-        # Normalize tags: string -> singleton set; iterable -> set; None -> empty set
-        # TODO: merge with the above by pulling this before the if existing check
-        if isinstance(tags, str):
-            tag_set = {tags}
-        else:
-            tag_set = set(tags or [])
         container = Container(
             name=name, description=description, technology=technology, tags=tag_set, parent=self
         )
@@ -92,32 +84,13 @@ class SoftwareSystem(ElementBase):
     # Operator sugar: system + Container(...) attaches/adopts container (idempotent by name)
     # Returns the SoftwareSystem to allow chaining: system + C1 + C2 + C3
     def __add__(self, other: "Container") -> "SoftwareSystem":  # type: ignore[override]
-        existing = self._containers.get(other.name)
-        # TODO: RETHINK THE ASSIGNMENT LOGIC HERE, WHY IS THIS DIFFERENT FROM add_container?
-        if existing is None:
-            other.parent = self
-            # Normalize tags on adopted container: string -> singleton set
-            if isinstance(other.tags, str):  # type: ignore[redundant-cast]
-                other.tags = {other.tags}  # type: ignore[assignment]
-            elif not isinstance(other.tags, set):
-                try:
-                    other.tags = set(other.tags)  # type: ignore[arg-type,assignment]
-                except Exception:
-                    other.tags = set()  # type: ignore[assignment]
-            self._containers[other.name] = other
-        else:
-            if other.description and not existing.description:
-                existing.description = other.description
-            if other.technology and not existing.technology:
-                existing.technology = other.technology
-            # Merge tags safely (normalize string)
-            if isinstance(other.tags, str):  # type: ignore[redundant-cast]
-                existing.tags.update({other.tags})
-            else:
-                try:
-                    existing.tags.update(other.tags)  # type: ignore[arg-type]
-                except Exception:
-                    pass
+        # Delegate to add_container for consistent create/update behavior and tag normalization
+        self.add_container(
+            name=other.name,
+            description=other.description,
+            technology=other.technology,
+            tags=other.tags,
+        )
         return self
 
     # Allow system["container-name"] access (mirrors previous proxy behavior)
@@ -148,23 +121,17 @@ class Container(ElementBase):
         technology: Optional[str] = None,
         tags: Optional[Iterable[str]] = None,
     ) -> "Component":
+        # Normalize tags once for both update and create paths
+        tag_set = self._normalize_tags(tags)
         existing = self._components.get(name)
-        # TODO: Comments similar to above
         if existing:
             if description and not existing.description:
                 existing.description = description
             if technology and not existing.technology:
                 existing.technology = technology
-            if tags:
-                if isinstance(tags, str):
-                    existing.tags.update({tags})
-                else:
-                    existing.tags.update(tags)
+            if tag_set:
+                existing.tags.update(tag_set)
             return existing
-        if isinstance(tags, str):
-            tag_set = {tags}
-        else:
-            tag_set = set(tags or [])
         comp = Component(
             name=name, description=description, technology=technology, tags=tag_set, parent=self
         )

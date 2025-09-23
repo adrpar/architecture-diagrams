@@ -25,7 +25,6 @@ from .views import (
     ComponentView,
     ContainerView,
     DeploymentView,
-    SmartSystemLandscapeView,
     SystemContextView,
     SystemLandscapeView,
     ViewType,
@@ -57,12 +56,7 @@ class SystemLandscape:
         self.deployment_nodes: Dict[str, DeploymentNode] = {}
         self.relationships: List[Relationship] = []
         self.views: List[
-            SystemLandscapeView
-            | SystemContextView
-            | ContainerView
-            | ComponentView
-            | DeploymentView
-            | SmartSystemLandscapeView
+            SystemLandscapeView | SystemContextView | ContainerView | ComponentView | DeploymentView
         ] = []
         self.styles = Styles()
         # ID tracking / uniqueness
@@ -208,8 +202,17 @@ class SystemLandscape:
         self.views.append(v)
         return v
 
-    def add_smart_system_landscape_view(self, key: str, name: str, description: str = "") -> SmartSystemLandscapeView:  # type: ignore[name-defined]
-        v = SmartSystemLandscapeView(key=key, name=name, view_type=ViewType.SYSTEM_LANDSCAPE, description=description)  # type: ignore[name-defined]
+    def add_smart_system_landscape_view(
+        self, key: str, name: str, description: str = ""
+    ) -> SystemLandscapeView:
+        # Back-compat sugar: produce a SystemLandscapeView with include_all semantics
+        v = SystemLandscapeView(
+            key=key,
+            name=name,
+            view_type=ViewType.SYSTEM_LANDSCAPE,
+            description=description,
+            include_all=True,
+        )
         self.views.append(v)
         return v
 
