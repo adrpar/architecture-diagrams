@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from contextlib import contextmanager
+from dataclasses import dataclass
 from typing import (
     Any,
     Dict,
@@ -33,6 +35,10 @@ from .model import (
     SystemLandscapeView,
     ViewType,
 )
+
+# Type aliases for readability
+AllowedPairs = Set[tuple[str, str]]
+RelationshipIdent = tuple[str, str, str, Optional[str]]
 
 # _SLSystemProxy removed; SystemLandscape.__getitem__ now returns SoftwareSystem directly.
 
@@ -74,7 +80,7 @@ class SystemLandscape:
 
     # ----- Element creation helpers -----
     def add_person(self, name: str, description: str = "", **kwargs: Any) -> Person:
-        tags = set(kwargs.get("tags", []))
+        tags = self._normalize_tags(kwargs.get("tags"))
         p = Person(name=name, description=description, tags=tags)
         self._register(p)
         self.people[p.id] = p
@@ -89,7 +95,7 @@ class SystemLandscape:
                 existing.description = description
             if kwargs.get("technology") and not existing.technology:
                 existing.technology = kwargs.get("technology")
-            existing.tags.update(kwargs.get("tags", []))
+            existing.tags.update(self._normalize_tags(kwargs.get("tags")))
             # Ensure index refreshed
             for c in existing.containers:
                 self._containers_index[(existing.name, c.name)] = c
@@ -98,7 +104,7 @@ class SystemLandscape:
             name=name,
             description=description,
             technology=kwargs.get("technology"),
-            tags=set(kwargs.get("tags", [])),
+            tags=self._normalize_tags(kwargs.get("tags")),
         )
         self._register(s)
         self.software_systems[s.id] = s
@@ -107,7 +113,19 @@ class SystemLandscape:
         return s
 
     def assign_group(self, group_name: str, system: SoftwareSystem):
-        self.groups.setdefault(group_name, []).append(system)
+        lst = self.groups.setdefault(group_name, [])
+        if all(s is not system for s in lst):
+            lst.append(system)
+
+    def get_group(self, group_name: str) -> List[SoftwareSystem]:
+        return list(self.groups.get(group_name, []))
+
+    def unassign_group(self, group_name: str, system: SoftwareSystem) -> None:
+        lst = self.groups.get(group_name)
+        if not lst:
+            return
+        # Keep only identities different from the provided system
+        self.groups[group_name] = [s for s in lst if s is not system]
 
     def add_deployment_node(
         self, name: str, description: str = "", **kwargs: Any
@@ -116,7 +134,7 @@ class SystemLandscape:
             name=name,
             description=description,
             technology=kwargs.get("technology"),
-            tags=set(kwargs.get("tags", [])),
+            tags=self._normalize_tags(kwargs.get("tags")),
         )
         self._register(node)
         self.deployment_nodes[node.id] = node
@@ -140,18 +158,31 @@ class SystemLandscape:
             destination=destination,
             description=description,
             technology=technology,
-            tags=set(tags or []),
+            tags=self._normalize_tags(tags),
         )
         self.relationships.append(rel)
         self._relationship_identity.add(ident)
         return rel
 
     # ----- Relationship filtering -----
-    def restrict_relationships_to(self, allowed_pairs: Set[tuple[str, str]]):
+    def restrict_relationships_to(self, allowed_pairs: AllowedPairs):
         self._allowed_relationship_pairs = {(s, d) for s, d in allowed_pairs}
 
     def clear_relationship_restrictions(self):  # pragma: no cover - simple setter
         self._allowed_relationship_pairs = None
+
+    @contextmanager
+    def limit_relationships_to(self, allowed_pairs: AllowedPairs):
+        """Temporarily restrict relationships to provided pairs within a with-block.
+
+        Restores the previous restriction on exit.
+        """
+        prev = self._allowed_relationship_pairs
+        try:
+            self.restrict_relationships_to(allowed_pairs)
+            yield
+        finally:
+            self._allowed_relationship_pairs = prev
 
     def get_effective_relationships(self) -> Iterable[Relationship]:  # type: ignore[override]
         if self._allowed_relationship_pairs is None:
@@ -199,6 +230,29 @@ class SystemLandscape:
         )
         self.views.append(v)
         return v
+
+    # Sugar helpers for auto-named views
+    def add_context_view_for(
+        self,
+        software_system: SoftwareSystem,
+        key: Optional[str] = None,
+        name: Optional[str] = None,
+        description: str = "",
+    ) -> SystemContextView:
+        k = key or f"{software_system.name}Context"
+        n = name or f"{software_system.name} Context"
+        return self.add_system_context_view(k, n, software_system, description)
+
+    def add_container_view_for(
+        self,
+        software_system: SoftwareSystem,
+        key: Optional[str] = None,
+        name: Optional[str] = None,
+        description: str = "",
+    ) -> ContainerView:
+        k = key or f"{software_system.name}Containers"
+        n = name or f"{software_system.name} Containers"
+        return self.add_container_view(k, n, software_system, description)
 
     def add_container_view(
         self, key: str, name: str, software_system: SoftwareSystem, description: str = ""
@@ -281,6 +335,21 @@ class SystemLandscape:
                     yield ci
                 stack.extend(child.children)
 
+    # Convenience iterators (thin wrappers)
+    def iter_systems(self) -> Iterable[SoftwareSystem]:  # pragma: no cover
+        return self.software_systems.values()
+
+    def iter_containers(self) -> Iterable[Container]:  # pragma: no cover
+        for s in self.software_systems.values():
+            for c in s.containers:
+                yield c
+
+    def iter_components(self) -> Iterable[ElementBase]:  # pragma: no cover
+        for s in self.software_systems.values():
+            for c in s.containers:
+                for comp in c.components:
+                    yield comp
+
     # ----- Registry-style accessors -----
     def get_system(self, name: str) -> SoftwareSystem:  # name-based (not slug) retrieval
         existing = next((s for s in self.software_systems.values() if s.name == name), None)
@@ -311,6 +380,15 @@ class SystemLandscape:
         if not existing:
             raise ValueError(f"Expected person '{name}' to be defined before access")
         return existing
+
+    def get(self, key: str) -> Union[SoftwareSystem, Container, Person]:
+        """Unified getter that supports 'Sys', 'Sys/Container', and 'person:Name'."""
+        if "/" in key:
+            sys_name, cont_name = key.split("/", 1)
+            return self.get_container(sys_name, cont_name)
+        if key.startswith("person:"):
+            return self.get_person(key.split(":", 1)[1])
+        return self.get_system(key)
 
     @overload
     def __getitem__(self, key: str) -> SoftwareSystem: ...  # system lookup
@@ -349,6 +427,7 @@ class SystemLandscape:
         # Merge containers from provided system (adopt pattern)
         for c in other.containers:
             self.add_container(other.name, c.name, c.description, c.technology, c.tags)
+        self._refresh_container_index_for(other)
         return self
 
     # Operator sugar: landscape + SoftwareSystem(...) mirrors << but allows inline literal construction.
@@ -424,64 +503,117 @@ class SystemLandscape:
     ) -> None:
         """Create/ensure a new container and rewire relationships away from an old one.
 
-        - Ensures `new_name` container exists under the system (adds if missing)
-        - Rewrites all relationships where source or destination is the old container to point to the new one
-        - Optionally tags the new and/or old containers
-        - Optionally removes the old container from the system and container index
+        This preserves the existing API by returning None.
+        For structured results, use `replace_container_report`.
         """
+        _ = self.replace_container_report(
+            system_name,
+            old_name,
+            new_name,
+            description=description,
+            technology=technology,
+            tag_new=tag_new,
+            tag_old=tag_old,
+            remove_old=remove_old,
+        )
+
+    @dataclass
+    class ReplaceResult:
+        new_container: Container
+        old_container: Optional[Container]
+        rewired_count: int
+        removed_old: bool
+        created_new: bool
+
+    def replace_container_report(
+        self,
+        system_name: str,
+        old_name: str,
+        new_name: str,
+        *,
+        description: str = "",
+        technology: Optional[str] = None,
+        tag_new: Optional[Iterable[str]] = None,
+        tag_old: Optional[Iterable[str]] = None,
+        remove_old: bool = True,
+    ) -> "SystemLandscape.ReplaceResult":
         system = self.get_system(system_name)
-        # Ensure new container exists
+        before = any(c.name == new_name for c in system.containers)
         new_c = system.add_container(new_name, description, technology, tags=tag_new or [])
         self._containers_index[(system.name, new_c.name)] = new_c
-
-        old_c = None
         try:
             old_c = self.get_container(system_name, old_name)
         except Exception:
             old_c = None
-
         if old_c is not None and tag_old:
-            old_c.tags.update(set(tag_old))
-
+            old_c.tags.update(self._normalize_tags(tag_old))
+        rewired = 0
         if old_c is not None and old_c is not new_c:
-            # Rewire relationships and update identity set
-            updated_identities: list[
-                tuple[tuple[str, str, str, Optional[str]], tuple[str, str, str, Optional[str]]]
-            ] = []
-            for rel in self.relationships:
-                old_ident = (rel.source.name, rel.destination.name, rel.description, rel.technology)
-                changed = False
-                if rel.source is old_c:
-                    rel.source = new_c
-                    changed = True
-                if rel.destination is old_c:
-                    rel.destination = new_c
-                    changed = True
-                if changed:
-                    new_ident = (
-                        rel.source.name,
-                        rel.destination.name,
-                        rel.description,
-                        rel.technology,
-                    )
-                    updated_identities.append((old_ident, new_ident))
-            # Refresh identity set entries
-            for old_ident, new_ident in updated_identities:
-                if old_ident in self._relationship_identity:
-                    self._relationship_identity.discard(old_ident)
-                self._relationship_identity.add(new_ident)
-
-            # Optionally remove old container
+            rewired = self._rewire_container_in_relationships(old_c, new_c)
             if remove_old:
                 try:
-                    # Remove from system container map
                     if hasattr(system, "_containers"):
                         system._containers.pop(old_name, None)  # type: ignore[attr-defined]
-                    # Remove from index
                     self._containers_index.pop((system.name, old_name), None)
                 except Exception:
-                    # Best-effort removal; keep running even if internal
                     pass
+        return self.ReplaceResult(
+            new_container=new_c,
+            old_container=old_c,
+            rewired_count=rewired,
+            removed_old=bool(old_c is not None and old_c is not new_c and remove_old),
+            created_new=not before,
+        )
+
+    # ----- Utilities -----
+    @staticmethod
+    def _normalize_tags(tags: Optional[Iterable[str] | str]) -> Set[str]:
+        """Normalize tags input to a set of strings.
+
+        - None -> empty set
+        - str -> singleton set {str}
+        - Iterable[str] -> set(iterable)
+        """
+        if tags is None:
+            return set()
+        if isinstance(tags, str):
+            return {tags}
+        try:
+            return set(tags)
+        except Exception:
+            return set()
+
+    def _refresh_container_index_for(self, system: SoftwareSystem) -> None:  # pragma: no cover
+        for c in system.containers:
+            self._containers_index[(system.name, c.name)] = c
+
+    def _rewire_container_in_relationships(self, old_c: Container, new_c: Container) -> int:
+        """Rewire relationships from old_c to new_c and update identity set; return count."""
+        updated_identities: list[tuple[RelationshipIdent, RelationshipIdent]] = []
+        rewired = 0
+        for rel in self.relationships:
+            old_ident = (rel.source.name, rel.destination.name, rel.description, rel.technology)
+            changed = False
+            if rel.source is old_c:
+                rel.source = new_c
+                changed = True
+            if rel.destination is old_c:
+                rel.destination = new_c
+                changed = True
+            if changed:
+                rewired += 1
+                new_ident = (
+                    rel.source.name,
+                    rel.destination.name,
+                    rel.description,
+                    rel.technology,
+                )
+                updated_identities.append((old_ident, new_ident))
+        for old_ident, new_ident in updated_identities:
+            if old_ident in self._relationship_identity:
+                self._relationship_identity.discard(old_ident)
+            self._relationship_identity.add(new_ident)
+        return rewired
 
 
 __all__ = ["SystemLandscape"]

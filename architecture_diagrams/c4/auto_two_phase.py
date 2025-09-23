@@ -57,6 +57,7 @@ def _infer_system_key(module: ModuleType, name: str) -> str:
     return getattr(module, "SYSTEM_KEY", name.replace("_", "-"))
 
 
+# TODO: remove project=None and always require it?
 def _import_c4_module(name: str, project: Optional[str] = None) -> ModuleType:
     """Import a C4 module by name from projects/<project>/models.
 
@@ -81,6 +82,7 @@ def auto_register(
 
     phase may be a Phase enum member or one of the strings: 'define', 'link', 'all'.
     """
+    # TODO: Just use enum everywhere and remove string support?
     phase_enum = Phase.coerce(phase)
 
     # If no explicit project provided, infer from model.name to support projects/<project>/ layout transparently
@@ -91,6 +93,7 @@ def auto_register(
     link_function_name = f"link_{name}"
     if not hasattr(module, define_function_name):
         raise AttributeError(f"Module {module.__name__} missing {define_function_name}")
+    # TODO: Check link_function availability? Maybe put all of this into a method
 
     link_function = getattr(module, link_function_name, None)
     define_function = getattr(module, define_function_name)

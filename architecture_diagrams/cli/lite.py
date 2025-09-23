@@ -81,8 +81,14 @@ def start(
         else:
             print("Structurizr lite seems to have failed on start.")
         return
-    print(f"Starting structurizr lite with workspace '{absolute_path}' ...")
-    start_structurizr_lite(absolute_path, port)
+    # If a file path is provided (e.g., .structurizr/workspace.dsl), mount its parent directory
+    mount_dir = absolute_path
+    if os.path.isfile(absolute_path):
+        mount_dir = os.path.dirname(absolute_path)
+    print(
+        f"Starting structurizr lite with workspace at '{absolute_path}' (mounted from '{mount_dir}') ..."
+    )
+    start_structurizr_lite(mount_dir, port)
 
     if wait_for_container_url(f"http://localhost:{port}"):
         webbrowser.open(f"http://localhost:{port}")

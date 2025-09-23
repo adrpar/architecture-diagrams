@@ -96,21 +96,21 @@ class ViewSpec:
         def resolve(sel: Selector) -> List[Union[ElementBase, RelationshipFilter]]:
             if isinstance(sel, str):
                 s = cast(str, sel)
-                if s.startswith("person:"):
-                    return [model.get_person(s.split(":", 1)[1])]
+                # Use unified getter; keep fallback to system if container path no longer exists
                 if "/" in s:
-                    sys_name, cont_name = s.split("/", 1)
+                    sys_name, _ = s.split("/", 1)
                     try:
-                        return [model.get_container(sys_name, cont_name)]
+                        return [model.get(s)]
                     except Exception:
-                        # If the container no longer exists (e.g., overlay replaced it),
-                        # fall back to the parent system rather than treating the whole string as a system name.
                         try:
                             return [model.get_system(sys_name)]
                         except Exception:
-                            pass
-                # assume software system by name
-                return [model.get_system(s)]
+                            return []
+                try:
+                    return [model.get(s)]
+                except Exception:
+                    # As a last resort, attempt system lookup by name
+                    return [model.get_system(s)]
             if isinstance(sel, RelationshipFilter):
                 return [sel]
             # callable selector

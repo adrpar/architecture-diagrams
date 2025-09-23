@@ -7,6 +7,20 @@ from typing import Iterable, List, Optional, Set
 from slugify import slugify
 
 
+def _normalize_tags(tags: Optional[Iterable[str] | str]) -> Set[str]:
+    if tags is None:
+        return set()
+    if isinstance(tags, str):
+        return {tags}
+    try:
+        return set(tags)
+    except Exception:
+        return set()
+
+
+# TODO: Separate things like styling off into separate modules?
+
+
 @dataclass
 class ElementBase:
     name: str
@@ -39,7 +53,6 @@ class Person(ElementBase):
 
 @dataclass
 class SoftwareSystem(ElementBase):
-    # Containers stored in an OrderedDict keyed by name for O(1) lookup and stable order
     _containers: "OrderedDict[str, Container]" = field(
         default_factory=OrderedDict, repr=False, init=False
     )
@@ -69,20 +82,22 @@ class SoftwareSystem(ElementBase):
                     existing.tags.update(tags)
             return existing
         # Normalize tags: string -> singleton set; iterable -> set; None -> empty set
+        # TODO: merge with the above by pulling this before the if existing check
         if isinstance(tags, str):
             tag_set = {tags}
         else:
             tag_set = set(tags or [])
-        c = Container(
+        container = Container(
             name=name, description=description, technology=technology, tags=tag_set, parent=self
         )
-        self._containers[name] = c
-        return c
+        self._containers[name] = container
+        return container
 
     # Operator sugar: system + Container(...) attaches/adopts container (idempotent by name)
     # Returns the SoftwareSystem to allow chaining: system + C1 + C2 + C3
     def __add__(self, other: "Container") -> "SoftwareSystem":  # type: ignore[override]
         existing = self._containers.get(other.name)
+        # TODO: RETHINK THE ASSIGNMENT LOGIC HERE, WHY IS THIS DIFFERENT FROM add_container?
         if existing is None:
             other.parent = self
             # Normalize tags on adopted container: string -> singleton set
@@ -138,6 +153,7 @@ class Container(ElementBase):
         tags: Optional[Iterable[str]] = None,
     ) -> "Component":
         existing = self._components.get(name)
+        # TODO: Comments similar to above
         if existing:
             if description and not existing.description:
                 existing.description = description
@@ -186,7 +202,7 @@ class DeploymentNode(ElementBase):
             name=name,
             description=description,
             technology=technology,
-            tags=set(tags or []),
+            tags=_normalize_tags(tags),
             parent=self,
         )
         self.children.append(node)
@@ -203,7 +219,7 @@ class DeploymentNode(ElementBase):
             name=name,
             description=description,
             technology=technology,
-            tags=set(tags or []),
+            tags=_normalize_tags(tags),
             parent=self,
         )
         self.infrastructure_nodes.append(infra)
@@ -294,6 +310,7 @@ class SystemLandscapeView(ViewBase):
     pass
 
 
+# TODO: Do we need this distinct class if it has no different behavior?
 @dataclass
 class SmartSystemLandscapeView(SystemLandscapeView):
     """System Landscape view that semantically requests wildcard include * plus explicit includes.
