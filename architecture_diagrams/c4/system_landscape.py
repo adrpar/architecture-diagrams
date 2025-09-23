@@ -19,18 +19,13 @@ from typing import (
     overload,
 )
 
-from .model import (
+from .model import Container, DeploymentNode, ElementBase, Person, Relationship, SoftwareSystem
+from .styles import Styles
+from .views import (
     ComponentView,
-    Container,
     ContainerView,
-    DeploymentNode,
     DeploymentView,
-    ElementBase,
-    Person,
-    Relationship,
     SmartSystemLandscapeView,
-    SoftwareSystem,
-    Styles,
     SystemContextView,
     SystemLandscapeView,
     ViewType,

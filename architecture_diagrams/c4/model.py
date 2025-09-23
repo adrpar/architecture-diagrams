@@ -7,20 +7,6 @@ from typing import Iterable, List, Optional, Set
 from slugify import slugify
 
 
-def _normalize_tags(tags: Optional[Iterable[str] | str]) -> Set[str]:
-    if tags is None:
-        return set()
-    if isinstance(tags, str):
-        return {tags}
-    try:
-        return set(tags)
-    except Exception:
-        return set()
-
-
-# TODO: Separate things like styling off into separate modules?
-
-
 @dataclass
 class ElementBase:
     name: str
@@ -44,6 +30,16 @@ class ElementBase:
     def __lshift__(self, other: "ElementBase") -> tuple["ElementBase", "ElementBase"]:
         # X << Y means Y -> X (source is other, destination is self)
         return (other, self)
+
+    def _normalize_tags(self, tags: Optional[Iterable[str] | str]) -> Set[str]:
+        if tags is None:
+            return set()
+        if isinstance(tags, str):
+            return {tags}
+        try:
+            return set(tags)
+        except Exception:
+            return set()
 
 
 @dataclass
@@ -202,7 +198,7 @@ class DeploymentNode(ElementBase):
             name=name,
             description=description,
             technology=technology,
-            tags=_normalize_tags(tags),
+            tags=self._normalize_tags(tags),
             parent=self,
         )
         self.children.append(node)
@@ -219,7 +215,7 @@ class DeploymentNode(ElementBase):
             name=name,
             description=description,
             technology=technology,
-            tags=_normalize_tags(tags),
+            tags=self._normalize_tags(tags),
             parent=self,
         )
         self.infrastructure_nodes.append(infra)
@@ -283,94 +279,3 @@ class Relationship:
 
     def id_tuple(self):
         return (self.source.id, self.destination.id, self.description, self.technology)
-
-
-class ViewType:
-    SYSTEM_LANDSCAPE = "SystemLandscape"
-    SYSTEM_CONTEXT = "SystemContext"
-    CONTAINER = "Container"
-    COMPONENT = "Component"
-    DEPLOYMENT = "Deployment"
-
-
-@dataclass
-class ViewBase:
-    key: str
-    name: str
-    view_type: str
-    include: Set[str] = field(default_factory=set)  # element ids
-    description: str = ""
-
-    def add(self, element: ElementBase):
-        self.include.add(element.id)
-
-
-@dataclass
-class SystemLandscapeView(ViewBase):
-    pass
-
-
-# TODO: Do we need this distinct class if it has no different behavior?
-@dataclass
-class SmartSystemLandscapeView(SystemLandscapeView):
-    """System Landscape view that semantically requests wildcard include * plus explicit includes.
-
-    This allows the exporter to render via pystructurizr normally and then add a wildcard line
-    without brittle pattern matching across arbitrary views.
-    """
-
-    wildcard: bool = True
-
-
-@dataclass
-class SystemContextView(ViewBase):
-    software_system: Optional[SoftwareSystem] = None
-
-
-@dataclass
-class ContainerView(ViewBase):
-    software_system: Optional[SoftwareSystem] = None
-
-
-@dataclass
-class ComponentView(ViewBase):
-    container: Optional[Container] = None
-
-
-@dataclass
-class DeploymentView(ViewBase):
-    environment: str = ""
-
-
-# Styles
-@dataclass
-class ElementStyle:
-    tag: str
-    background: Optional[str] = None
-    color: Optional[str] = None
-    shape: Optional[str] = None
-    opacity: Optional[int] = None
-
-
-@dataclass
-class RelationshipStyle:
-    tag: str
-    color: Optional[str] = None
-    dashed: Optional[bool] = None
-    thickness: Optional[int] = None
-
-
-@dataclass
-class Styles:
-    element_styles: List[ElementStyle] = field(default_factory=list)
-    relationship_styles: List[RelationshipStyle] = field(default_factory=list)
-    themes: List[str] = field(default_factory=list)
-
-    def add_element_style(self, style: ElementStyle):
-        self.element_styles.append(style)
-
-    def add_relationship_style(self, style: RelationshipStyle):
-        self.relationship_styles.append(style)
-
-
-"""Former base model removed; functionality merged into SystemLandscape (see system_landscape.py)."""

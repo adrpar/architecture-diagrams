@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from typing import Iterable, Union
 
-from architecture_diagrams.c4.model import ElementBase, SoftwareSystem
+from architecture_diagrams.c4 import ElementBase, SoftwareSystem
 from architecture_diagrams.c4.system_landscape import SystemLandscape
 
 # TODO: Still used?

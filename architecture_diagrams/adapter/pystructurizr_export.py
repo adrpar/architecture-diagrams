@@ -17,12 +17,12 @@ from pystructurizr.dsl import (
     Workspace,
 )
 
-from architecture_diagrams.c4 import (
+from architecture_diagrams.c4 import SystemLandscape
+from architecture_diagrams.c4.views import (
     ComponentView,
     ContainerView,
     SmartSystemLandscapeView,
     SystemContextView,
-    SystemLandscape,
     SystemLandscapeView,
 )
 from architecture_diagrams.extensions.smart_views import SmartView
@@ -103,7 +103,7 @@ def to_pystructurizr(model: SystemLandscape) -> Workspace:
                     parent = getattr(cur, "parent", None)
                     if parent is None:
                         return None
-                    from architecture_diagrams.c4.model import SoftwareSystem as _MS
+                    from architecture_diagrams.c4 import SoftwareSystem as _MS
 
                     if isinstance(parent, _MS):
                         return parent
@@ -192,7 +192,7 @@ def _normalized_include_elements(
     - ContainerView: allow Person, SoftwareSystem, and Containers within the subject software system; map external Container/Component to parent SoftwareSystem.
     - ComponentView: allow Person, SoftwareSystem, Containers (external), and Components within the subject container; map external Component to its parent Container.
     """
-    from architecture_diagrams.c4.model import (
+    from architecture_diagrams.c4 import (
         Component as MComponent,
         ComponentView as MComponentView,
         Container as MContainer,
@@ -321,7 +321,7 @@ def _resolve_view_subject(
     - ContainerView expects a SoftwareSystem (subject system)
     - ComponentView expects a Container
     """
-    from architecture_diagrams.c4.model import (
+    from architecture_diagrams.c4 import (
         Component as MComponent,
         ComponentView as MComponentView,
         Container as MContainer,
@@ -1257,7 +1257,7 @@ def _apply_name_filters(dsl: str, model: SystemLandscape) -> str:
 
             # Filter non-smart views by kind in definition order
             def _is_kind(v: object, kind: str = kind) -> bool:
-                from architecture_diagrams.c4.model import (
+                from architecture_diagrams.c4 import (
                     ComponentView as MComponentView,
                     ContainerView as MContainerView,
                     SystemContextView as MSystemContextView,
@@ -1391,7 +1391,7 @@ def _inject_view_header_comments(dsl: str, model: SystemLandscape) -> str:
 
         # Filter non-smart views by kind
         def _is_kind(v: object) -> bool:
-            from architecture_diagrams.c4.model import (
+            from architecture_diagrams.c4 import (
                 ComponentView as MComponentView,
                 ContainerView as MContainerView,
                 SystemContextView as MSystemContextView,

@@ -7,28 +7,30 @@ other exporters in the future (PlantUML, JSON, etc.).
 
 from .model import (
     Component,
-    ComponentView,
     Container,
     ContainerInstance,
-    ContainerView,
     DeploymentNode,
-    DeploymentView,
-    ElementStyle,
+    ElementBase,
     InfrastructureNode,
     Person,
     Relationship,
-    RelationshipStyle,
-    SmartSystemLandscapeView,
     SoftwareSystem,
     SoftwareSystemInstance,
-    Styles,
+)
+from .styles import ElementStyle, RelationshipStyle, Styles
+from .system_landscape import SystemLandscape
+from .views import (
+    ComponentView,
+    ContainerView,
+    DeploymentView,
+    SmartSystemLandscapeView,
     SystemContextView,
     SystemLandscapeView,
     ViewType,
 )
-from .system_landscape import SystemLandscape
 
 __all__ = [
+    "ElementBase",
     "Person",
     "SoftwareSystem",
     "Container",
