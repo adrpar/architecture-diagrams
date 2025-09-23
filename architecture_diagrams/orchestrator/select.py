@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 from typing import Iterable, List, Optional, Set
 
 from architecture_diagrams.orchestrator.specs import ViewSpec

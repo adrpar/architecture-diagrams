@@ -31,6 +31,9 @@ automatically install all the requirements before execution:
 
 ```
 uv run architecture-diagrams --help
+## Note on immutability
+
+Earlier experimental immutable model duplicates (I* types) were removed. The primary C4 model remains the source of truth, keeping the user-facing API unchanged and overlays/tagging operating in-place.
 ```
 
 ## Building (optional)

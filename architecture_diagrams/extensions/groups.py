@@ -1,8 +1,7 @@
 from dataclasses import dataclass, field
-from typing import List, Type
+from typing import Type
 
-from pystructurizr.dsl import Group as DslGroup
-from pystructurizr.dsl import SoftwareSystem
+from pystructurizr.dsl import Group as DslGroup, SoftwareSystem
 
 
 @dataclass

@@ -1,12 +1,19 @@
-import click
 from pathlib import Path
+
+import click
 
 from architecture_diagrams.orchestrator.loader import discover_view_specs
 
 
 @click.command()
-@click.option("--project", default="banking", help="Project key under projects/* (default: banking)")
-@click.option("--project-path", default=None, help="Path to an external project directory or a 'projects' folder (optional)")
+@click.option(
+    "--project", default="banking", help="Project key under projects/* (default: banking)"
+)
+@click.option(
+    "--project-path",
+    default=None,
+    help="Path to an external project directory or a 'projects' folder (optional)",
+)
 def list_modules(project: str, project_path: str | None) -> None:
     """List available module keys inferred from view subjects (SYSTEM_KEY)."""
     root = Path(__file__).resolve().parents[2]

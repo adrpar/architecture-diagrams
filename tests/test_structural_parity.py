@@ -11,11 +11,15 @@ Rules:
  3. All legacy persons must exist in C4 (by name).
  4. Report concise diffs if missing; ignore extras.
 """
-from typing import Any
-from architecture_diagrams.adapter.pystructurizr_export import to_pystructurizr  # type: ignore[assignment]
+
 from pathlib import Path
-from architecture_diagrams.orchestrator.loader import discover_model_builders
+from typing import Any
+
+from architecture_diagrams.adapter.pystructurizr_export import (
+    to_pystructurizr,  # type: ignore[assignment]
+)
 from architecture_diagrams.orchestrator.compose import compose
+from architecture_diagrams.orchestrator.loader import discover_model_builders
 
 
 def _build_legacy_like_workspace() -> Any:
@@ -36,16 +40,16 @@ def _legacy_elements():
     persons: set[str] = set()
 
     # pystructurizr Workspace exposes Model via capital M attribute
-    model = getattr(legacy_ws, 'Model', None)
+    model = getattr(legacy_ws, "Model", None)
     if model is None:
         raise AssertionError("Legacy workspace missing Model attribute (pystructurizr API change?)")
 
     # software_systems stored on model.software_systems (list-like)
-    for s in getattr(model, 'software_systems', []):
-        containers = {c.name for c in getattr(s, 'containers', [])}
+    for s in getattr(model, "software_systems", []):
+        containers = {c.name for c in getattr(s, "containers", [])}
         systems[s.name] = containers
 
-    for p in getattr(model, 'people', []):
+    for p in getattr(model, "people", []):
         persons.add(p.name)
 
     return systems, persons
@@ -55,6 +59,7 @@ def _build_c4_workspace():
     root = Path(__file__).resolve().parents[1]
     builders = discover_model_builders(root, project="banking")
     return compose(builders, name="banking")
+
 
 def _c4_elements():
     c4 = _build_c4_workspace()
@@ -70,19 +75,19 @@ def _legacy_relationship_pairs() -> set[tuple[str, str]]:
     to avoid noise from external placeholder elements not (yet) modeled in C4.
     """
     ws = _build_legacy_like_workspace()
-    model = getattr(ws, 'Model')
-    systems = {s.name: s for s in getattr(model, 'software_systems', [])}
-    persons = {p.name: p for p in getattr(model, 'people', [])}
+    model = ws.Model
+    systems = {s.name: s for s in getattr(model, "software_systems", [])}
+    persons = {p.name: p for p in getattr(model, "people", [])}
     valid_names = set(systems.keys()) | set(persons.keys())
     # Add containers
     container_index: dict[str, object] = {}
     for s in systems.values():
-        for c in getattr(s, 'containers', []):
+        for c in getattr(s, "containers", []):
             container_index[c.name] = c
             valid_names.add(c.name)
 
     pairs: set[tuple[str, str]] = set()
-    for rel in getattr(model, 'relationships', []):
+    for rel in getattr(model, "relationships", []):
         try:
             src = rel.source.name  # type: ignore[attr-defined]
             dst = rel.destination.name  # type: ignore[attr-defined]
@@ -117,7 +122,10 @@ def test_structural_parity():
     if missing_systems:
         msgs.append(f"Missing systems: {missing_systems}")
     if missing_containers:
-        msgs.append(f"Missing containers: {missing_containers[:40]}" + (" ..." if len(missing_containers) > 40 else ""))
+        msgs.append(
+            f"Missing containers: {missing_containers[:40]}"
+            + (" ..." if len(missing_containers) > 40 else "")
+        )
     if missing_persons:
         msgs.append(f"Missing persons: {missing_persons}")
 

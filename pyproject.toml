@@ -34,3 +34,27 @@ build-backend = "setuptools.build_meta"
 
 [project.scripts]
 architecture-diagrams = "architecture_diagrams.archdiags:cli"
+
+[tool.black]
+line-length = 100
+target-version = ["py312"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+extend-exclude = ["tests/fixtures"]
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "F",   # Pyflakes
+    "I",   # isort
+    "B",   # flake8-bugbear
+]
+ignore = [
+    "E501",  # handled by black line-length
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["architecture_diagrams"]
+combine-as-imports = true

@@ -1,13 +1,16 @@
 from __future__ import annotations
 
 import re
-
-from architecture_diagrams.adapter.pystructurizr_export import dump_dsl, to_pystructurizr  # type: ignore[assignment]
-from architecture_diagrams.orchestrator.build import build_workspace_dsl
-from architecture_diagrams.orchestrator.loader import discover_model_builders, discover_view_specs
-from architecture_diagrams.orchestrator.compose import compose
-from architecture_diagrams.orchestrator.select import select_views
 from pathlib import Path
+
+from architecture_diagrams.adapter.pystructurizr_export import (  # type: ignore[assignment]
+    dump_dsl,
+    to_pystructurizr,
+)
+from architecture_diagrams.orchestrator.build import build_workspace_dsl
+from architecture_diagrams.orchestrator.compose import compose
+from architecture_diagrams.orchestrator.loader import discover_model_builders, discover_view_specs
+from architecture_diagrams.orchestrator.select import select_views
 
 
 def _extract_view_titles(dsl: str) -> set[str]:
@@ -53,7 +56,9 @@ def test_view_title_parity_default():
     legacy_titles.discard("Banking")
 
     # Orchestrator-generated DSL for tag 'default'
-    orch_dsl = build_workspace_dsl(select_tags=["default"], project="banking", workspace_name="banking") 
+    orch_dsl = build_workspace_dsl(
+        select_tags=["default"], project="banking", workspace_name="banking"
+    )
     orch_titles = _extract_view_titles(orch_dsl)
 
     assert orch_titles == legacy_titles
@@ -73,7 +78,7 @@ def test_view_title_parity_td():
     legacy_titles.discard("Banking")
 
     # Orchestrator-generated DSL for tag 'td'
-    orch_dsl = build_workspace_dsl(select_tags=["td"], project="banking", workspace_name="banking") 
+    orch_dsl = build_workspace_dsl(select_tags=["td"], project="banking", workspace_name="banking")
     orch_titles = _extract_view_titles(orch_dsl)
 
     assert orch_titles == legacy_titles

@@ -1,7 +1,8 @@
-from architecture_diagrams.orchestrator.loader import discover_model_builders
-from architecture_diagrams.orchestrator.compose import compose
-from architecture_diagrams.adapter.pystructurizr_export import dump_dsl
 from pathlib import Path
+
+from architecture_diagrams.adapter.pystructurizr_export import dump_dsl
+from architecture_diagrams.orchestrator.compose import compose
+from architecture_diagrams.orchestrator.loader import discover_model_builders
 
 
 def build_c4_workspace():
@@ -33,8 +34,13 @@ def test_c4_workspace_contains_core_systems():
 
 def test_payments_core_relationships():
     wm = build_c4_workspace()
+
     def has(src, dst, desc):
-        return any(r.source.name == src and r.destination.name == dst and r.description == desc for r in wm.relationships)
+        return any(
+            r.source.name == src and r.destination.name == dst and r.description == desc
+            for r in wm.relationships
+        )
+
     assert has("Web App", "Payments API", "Initiates payments")
     assert has("Payments API", "Accounts Service", "Verifies account & balance")
     assert has("Clearing Adapter", "Payments API", "Reports clearing status")
@@ -44,8 +50,13 @@ def test_payments_core_relationships():
 
 def test_identity_relationships():
     wm = build_c4_workspace()
+
     def has(src, dst, desc):
-        return any(r.source.name == src and r.destination.name == dst and r.description == desc for r in wm.relationships)
+        return any(
+            r.source.name == src and r.destination.name == dst and r.description == desc
+            for r in wm.relationships
+        )
+
     assert has("Web App", "Auth Server", "Authenticates")
     assert has("iOS App", "Auth Server", "Authenticates")
     assert has("Android App", "Auth Server", "Authenticates")
@@ -53,8 +64,13 @@ def test_identity_relationships():
 
 def test_eventing_relationships():
     wm = build_c4_workspace()
+
     def has(src, dst, desc_sub):
-        return any(r.source.name == src and r.destination.name == dst and desc_sub in r.description for r in wm.relationships)
+        return any(
+            r.source.name == src and r.destination.name == dst and desc_sub in r.description
+            for r in wm.relationships
+        )
+
     assert has("Ledger Service", "Kafka", "Publishes posting events")
     assert has("Payments API", "Kafka", "Publishes payment events")
     assert has("Kafka", "Event Router", "Delivers events")
@@ -63,8 +79,13 @@ def test_eventing_relationships():
 
 def test_notifications_reporting_open_banking_and_risk_relationships():
     wm = build_c4_workspace()
+
     def has(src, dst, desc):
-        return any(r.source.name == src and r.destination.name == dst and r.description == desc for r in wm.relationships)
+        return any(
+            r.source.name == src and r.destination.name == dst and r.description == desc
+            for r in wm.relationships
+        )
+
     # Notifications
     assert has("Payments API", "Event Router", "Emits payment events")
     # Reporting
@@ -82,8 +103,13 @@ def test_notifications_reporting_open_banking_and_risk_relationships():
 
 def test_aml_and_external_partners_relationships():
     wm = build_c4_workspace()
+
     def has(src, dst, desc):
-        return any(r.source.name == src and r.destination.name == dst and r.description == desc for r in wm.relationships)
+        return any(
+            r.source.name == src and r.destination.name == dst and r.description == desc
+            for r in wm.relationships
+        )
+
     # AML
     assert has("Accounts Service", "KYC Service", "Requests KYC checks")
     assert has("Payments API", "Sanctions Screening", "Screens counterparties")

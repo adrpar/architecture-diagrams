@@ -9,3 +9,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Initial open-source release under MIT License
 - Banking example project with models and views
 - CLI for generating Structurizr DSL and running Structurizr Lite
+
+## [Unreleased]
+### Changed
+- Removed experimental immutable I* model duplicates and adapters; consolidated on the primary mutable C4 model for simplicity.
+- Kept overlays and tagging working on the unified model; no flags or alternate pipeline required.
+
+### Added
+-

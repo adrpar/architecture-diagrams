@@ -1,16 +1,43 @@
 __pycache__
 __pycache__/
 *.pyc
-.mypy_cache
-.coverage
-htmlcov
+*.pyo
+*.pyd
+*$py.class
+
+# Caches and tooling
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
 .cache
+.pyright/
+
+# Coverage & test outputs
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+
+# Virtual environments
 .venv
 .env
+env/
+venv/
+ENV/
+
+# Packaging / build artifacts
+build/
+dist/
 *.egg-info/
 *.egg
-.structurizr/
-workspace.dsl
-workspace.json
+
+# Editors / OS
 .DS_Store
 .vscode/
+.idea/
+
+# Structurizr/diagrams generated outputs
+.structurizr/
+architecture_diagrams/workspace.dsl
+workspace.dsl
+workspace.json

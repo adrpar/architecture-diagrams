@@ -25,16 +25,20 @@ If absent, we infer system key by replacing underscores in <name> with hyphens.
 
 This lets us delete explicit register_* boilerplate across modules.
 """
+
 from __future__ import annotations
 
+from enum import Enum
 from importlib import import_module
 from types import ModuleType
-from enum import Enum
-from typing import Sequence, List, Union, Optional
-from . import SystemLandscape, SoftwareSystem
+from typing import List, Optional, Sequence, Union
+
+from . import SoftwareSystem, SystemLandscape
 
 
-class Phase(str, Enum):  # str subclass so existing string comparisons still work if any external code inspects value
+class Phase(
+    str, Enum
+):  # str subclass so existing string comparisons still work if any external code inspects value
     DEFINE = "define"
     LINK = "link"
     ALL = "all"
@@ -53,6 +57,7 @@ def _infer_system_key(module: ModuleType, name: str) -> str:
     return getattr(module, "SYSTEM_KEY", name.replace("_", "-"))
 
 
+# TODO: remove project=None and always require it?
 def _import_c4_module(name: str, project: Optional[str] = None) -> ModuleType:
     """Import a C4 module by name from projects/<project>/models.
 
@@ -66,21 +71,29 @@ def _import_c4_module(name: str, project: Optional[str] = None) -> ModuleType:
     return import_module(mod_name)
 
 
-def auto_register(model: SystemLandscape, name: str, phase: Union[Phase, str] = Phase.ALL, *, project: Optional[str] = None) -> SoftwareSystem | dict[str, SoftwareSystem]:
+def auto_register(
+    model: SystemLandscape,
+    name: str,
+    phase: Union[Phase, str] = Phase.ALL,
+    *,
+    project: Optional[str] = None,
+) -> SoftwareSystem | dict[str, SoftwareSystem]:
     """Auto-register a C4 system module.
 
     phase may be a Phase enum member or one of the strings: 'define', 'link', 'all'.
     """
+    # TODO: Just use enum everywhere and remove string support?
     phase_enum = Phase.coerce(phase)
 
     # If no explicit project provided, infer from model.name to support projects/<project>/ layout transparently
-    effective_project = project or getattr(model, 'name', None)
+    effective_project = project or getattr(model, "name", None)
     module = _import_c4_module(name, project=effective_project)
 
     define_function_name = f"define_{name}"
     link_function_name = f"link_{name}"
     if not hasattr(module, define_function_name):
         raise AttributeError(f"Module {module.__name__} missing {define_function_name}")
+    # TODO: Check link_function availability? Maybe put all of this into a method
 
     link_function = getattr(module, link_function_name, None)
     define_function = getattr(module, define_function_name)
@@ -92,7 +105,9 @@ def auto_register(model: SystemLandscape, name: str, phase: Union[Phase, str] = 
         defined = define_function(model)
     if phase_enum in {Phase.LINK, Phase.ALL} and link_function is not None:
         if defined is None:
-            existing = next((s for s in model.software_systems.values() if s.name == system_key), None)
+            existing = next(
+                (s for s in model.software_systems.values() if s.name == system_key), None
+            )
             if existing is None:
                 raise ValueError(f"Cannot link {system_key} before it is defined")
             defined = existing
@@ -102,10 +117,17 @@ def auto_register(model: SystemLandscape, name: str, phase: Union[Phase, str] = 
     return defined
 
 
-def auto_register_all(model: SystemLandscape, names: Sequence[str], phase: Union[Phase, str] = Phase.ALL, *, project: Optional[str] = None) -> List[SoftwareSystem | dict[str, SoftwareSystem]]:
+def auto_register_all(
+    model: SystemLandscape,
+    names: Sequence[str],
+    phase: Union[Phase, str] = Phase.ALL,
+    *,
+    project: Optional[str] = None,
+) -> List[SoftwareSystem | dict[str, SoftwareSystem]]:
     results: List[SoftwareSystem | dict[str, SoftwareSystem]] = []
     for n in names:
         results.append(auto_register(model, n, phase=phase, project=project))
     return results
+
 
 __all__ = ["auto_register", "auto_register_all", "Phase"]

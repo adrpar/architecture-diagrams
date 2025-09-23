@@ -1,4 +1,4 @@
-from architecture_diagrams.c4 import SystemLandscape, SoftwareSystem, Container
+from architecture_diagrams.c4 import Container, SoftwareSystem, SystemLandscape
 
 SYSTEM_KEY = "Clearing House"
 

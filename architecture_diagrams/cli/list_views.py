@@ -1,16 +1,25 @@
-import click
 import sys
+from pathlib import Path
+
+import click
 
 from architecture_diagrams.orchestrator.loader import discover_view_specs
-from pathlib import Path
 
 
 @click.command()
-@click.option("--project", default="banking", help="Project key under projects/* (default: banking)")
-@click.option("--project-path", default=None, help="Path to an external project directory or a 'projects' folder (optional)")
+@click.option(
+    "--project", default="banking", help="Project key under projects/* (default: banking)"
+)
+@click.option(
+    "--project-path",
+    default=None,
+    help="Path to an external project directory or a 'projects' folder (optional)",
+)
 @click.option("--filter-tag", "filter_tag", default=None, help="Filter by tag (optional)")
 @click.pass_context
-def list_views(ctx: click.Context, project: str, project_path: str | None, filter_tag: str | None) -> None:
+def list_views(
+    ctx: click.Context, project: str, project_path: str | None, filter_tag: str | None
+) -> None:
     """List discovered views and their tags."""
     root = Path(__file__).resolve().parents[2]
     extra_dirs: list[Path] = []
@@ -24,7 +33,11 @@ def list_views(ctx: click.Context, project: str, project_path: str | None, filte
         elif (pp / "projects").exists() and str(pp) not in sys.path:
             sys.path.insert(0, str(pp))
         # Case 3: user passed a direct project folder => add parent of 'projects'
-        elif (pp / "views").exists() and (pp.parent.name == "projects") and str(pp.parent.parent) not in sys.path:
+        elif (
+            (pp / "views").exists()
+            and (pp.parent.name == "projects")
+            and str(pp.parent.parent) not in sys.path
+        ):
             sys.path.insert(0, str(pp.parent.parent))
         # Direct project with views/
         if (pp / "views").exists():
@@ -34,7 +47,7 @@ def list_views(ctx: click.Context, project: str, project_path: str | None, filte
             project_explicit = False
             try:
                 src = ctx.get_parameter_source("project")
-                project_explicit = (str(src).lower().endswith("commandline"))
+                project_explicit = str(src).lower().endswith("commandline")
             except Exception:
                 pass
             # If user explicitly provided --project, prefer that specific project's views under the provided path
@@ -72,4 +85,6 @@ def list_views(ctx: click.Context, project: str, project_path: str | None, filte
         smart = " smart" if getattr(spec, "smart", False) else ""
         proj = getattr(spec, "project", None)
         proj_str = f" :: project={proj}" if proj else ""
-        click.echo(f"{spec.key} [{spec.view_type}{smart}]{subj} :: {spec.name} :: tags={tags}{proj_str}")
+        click.echo(
+            f"{spec.key} [{spec.view_type}{smart}]{subj} :: {spec.name} :: tags={tags}{proj_str}"
+        )

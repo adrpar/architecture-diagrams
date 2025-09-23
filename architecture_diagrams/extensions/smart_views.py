@@ -4,7 +4,6 @@ from pystructurizr.dsl import Dumper, Element, View
 
 from architecture_diagrams.extensions.relationships import RelationshipFilter
 
-
 DEFAULT_VIEW_TAG = "default"
 TD_VIEW_TAG = "td"
 
@@ -37,9 +36,7 @@ class SmartView(View):  # type: ignore[misc]
     def dump(self, dumper: Dumper) -> None:
         # pystructurizr uses lowercase kind names in dump (e.g., systemLandscape); ensure parity
         kind = self.viewkind.value[0].lower() + self.viewkind.value[1:]
-        dumper.add(
-            f'{kind} {self.element.instname if self.element else ""} {{'
-        )
+        dumper.add(f'{kind} {self.element.instname if self.element else ""} {{')
         dumper.indent()
         if self.description:
             dumper.add(f'description "{self.description}"')

@@ -1,4 +1,4 @@
-from architecture_diagrams.c4 import SystemLandscape, Container
+from architecture_diagrams.c4 import Container, SystemLandscape
 
 
 def test_system_indexing_and_container_lookup():
@@ -44,4 +44,3 @@ def test_add_container_idempotent_and_index_refresh():
     assert c.technology == "Python"
     # use model indexing after second call
     assert model["Sys"]["api"] is c
-
