@@ -43,7 +43,7 @@ jobs:
       - name: "Smoke: generate banking DSL"
         run: uv run python -m architecture_diagrams.archdiags generate --project banking --output .structurizr/workspace.dsl
       - name: Upload DSL artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: workspace-dsl
           path: .structurizr/workspace.dsl
